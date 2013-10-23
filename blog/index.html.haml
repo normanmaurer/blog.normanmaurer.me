@@ -1,0 +1,16 @@
+---
+layout: base
+---
+.page-header
+  %h1 Blog Archive
+- for year, posts_by_year in site.posts_archive.posts
+  - for month, posts_by_month in posts_by_year
+    %h2
+      = year
+      %small= posts_by_month.first[1].first.date.strftime('%B')
+    %ul.unstyled
+      - for date, posts_by_date in posts_by_month
+        - for post in posts_by_date
+          %li
+            = post.date.strftime('%b %e')
+            %a{:href=>post.url}= post.title
