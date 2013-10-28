@@ -20,7 +20,7 @@
             %li
               %a{ :href=>"#{site.base_url}" } Home
             %li
-              %a{ :href=>"#{site.base_url}/blog" } Blog
+              %a{ :href=> site.posts[0].url } Blog
     .container
     .container
       ~ content
