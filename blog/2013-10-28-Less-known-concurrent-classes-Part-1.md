@@ -97,7 +97,7 @@ This code mimics the creation of 1M instances which each has 10 `AtomicLong` ins
 
 Now let us have a look at how much memory is retained by them. For this I used Yourkit but any other tool which can inspect heap-dumps should just work fine.
 
-![AtomicExample](/blog/images/AtomicExample.png "Memory usage of AtomicExample")
+![AtomicExample](./images/AtomicExample.png "Memory usage of AtomicExample")
 
 As you can see AtomicLong and AtomicReference took about about 400MB of memory where AtomicExample itself takes up 96MB. This makes up a a sum of ca. 500MB memory that is used by each AtomicExample instance that is created.
 
@@ -183,7 +183,7 @@ The code looks like this now:
 As you see the code becomes a bit more bloaded, hopefully it pays out. Again let us take a look at the memory usage as before.
 
 
-![AtomicFieldExample](#{site.base_url}/blog/images/AtomicFieldExample.png "Memory usage of AtomicFieldExample")
+![AtomicFieldExample](./images/AtomicFieldExample.png "Memory usage of AtomicFieldExample")
 
 As you can see from the screenshot the used memory is a lot smaller. In fact it now needs not more then ca. 136MB of memory for the 1M instances of the `AtomicFieldExample`. This is a nice improvement compared to the previous memory usage. Now think about how much memory you can save if you have a few cases where you can replace Atomic* classes with volatile and Atomic*FieldUpdater in classes that are instanced a lot.
 
