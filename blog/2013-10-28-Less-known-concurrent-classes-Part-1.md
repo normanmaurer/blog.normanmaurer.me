@@ -183,7 +183,7 @@ The code looks like this now:
 As you see the code becomes a bit more bloaded, hopefully it pays out. Again let us take a look at the memory usage as before.
 
 
-![AtomicFieldExample](/blog/images/AtomicFieldExample.png "Memory usage of AtomicFieldExample")
+![AtomicFieldExample](#{site.base_url}/blog/images/AtomicFieldExample.png "Memory usage of AtomicFieldExample")
 
 As you can see from the screenshot the used memory is a lot smaller. In fact it now needs not more then ca. 136MB of memory for the 1M instances of the `AtomicFieldExample`. This is a nice improvement compared to the previous memory usage. Now think about how much memory you can save if you have a few cases where you can replace Atomic* classes with volatile and Atomic*FieldUpdater in classes that are instanced a lot.
 
