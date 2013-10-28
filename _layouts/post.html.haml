@@ -11,15 +11,7 @@ layout: base
     .content
       ~ page.content
 
+.content
+  = page.content
 .comments
-  :ruby
-    real_base_url = site.real_base_url
-    relative_base_url = site.base_url
-    site.base_url = real_base_url
-  - if !page.disqus_identifier
-    - page.disqus_identifier = 'blog/' + page.simple_name
-  = page.disqus_comments
-  :ruby
-    site.real_base_url = real_base_url
-    site.base_url = relative_base_url
-
+  = page.disqus_comments 
