@@ -116,14 +116,86 @@
           </div>
         </article>
       </div>
+      <div class="content">
+        
+        <p>Today I want to talk about one of the less known utility classes when it comes to atomic operations in Java. Everyone who ever has done some real work with the java.util.concurrent package should be aware of the Atomic* classes in there which helps you to do atomic operations on references, Longs, Integers, Booleans and more.</p>
+        
+        <p>The classes in question are all located in the <a href="http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/atomic/package-summary.html">java.util.concurrent.atomic package</a>. Like:
+         * <code>AtomicBoolean</code>
+         * <code>AtomicInteger</code>
+         * <code>AtomicReference</code>
+         * <code>AtomicLong</code> 
+         ….</p>
+        
+        <p>Using those is as easy as doing something like:</p>
+        
+        <pre><code>AtomicLong atomic = new AtomicLong(0);&#x000A;  atomic.compareAndSet(0, 1);&#x000A;  ...&#x000A;  ...&#x000A;  </code></pre>
+        
+        <p>So what is the big deal with them? It's about memory usage … 
+        Wouldn't it be nice to be able to just use a <code>volatile long</code> and so use less heap space? </p>
+        
+        <blockquote>
+          <p>HELL YEAH!</p>
+        </blockquote>
+        
+        <p>This is exactly where the not widely known Atomic<em>FieldUpdater comes in. Those allow you to do atomic operations on a volatile field and so save the space which is needed to hold the object that you would create if you would use something like <code>AtomicLong</code>. This works as Atomic</em>FieldUpdater is used as a static field and so not need to create a new Object everytime.</p>
+        
+        <blockquote>
+          <p>Neat, isn't it ?</p>
+        </blockquote>
+        
+        <p>So to replace the above usage of <code>AtomicLong</code> your code would look like:</p>
+        
+        <pre><code>    private static final AtomicLongFieldUpdater&lt;TheDeclaringClass&gt; ATOMIC_UPDATER =&#x000A;          AtomicLongFieldUpdater.newUpdater(TheDeclaringClass.class, "atomic");&#x000A;  &#x000A;  private volatile long atomic;&#x000A;  &#x000A;  public void yourMethod() {&#x000A;      ATOMIC_UPDATER.compareAndSet(this, 0, 1);&#x000A;      ...&#x000A;      ...     }&#x000A;  </code></pre>
+        
+        <p>This works with some reflection magic which is used when you create the <code>AtomicLongFieldUpdater</code> instance. The passed in fieldname (in this case atomic) will be used to lookup the declared volatile field. Thus you must be sure it matches. 
+        And this is one of the weak things when using Atomic*FieldUpdater as there is no way for the compiler to detect that those match. So you need to keep an eye on this by yourself. </p>
+        
+        <p>You may ask you self about if it worth it at all? As always it depends… If you only create a few thousands instances of the class that use Atomic* it may not worth it at all. But there may be situations where you need to create millions of them and keep the alive for a long time. In those situations it can have a big impact.</p>
+        
+        <p>In the case of the <a href="http://netty.io">Netty Project</a> we used <code>AtomicLong</code> and <code>AtomicReference</code> in our <code>Channel</code>, <code>DefaultChannelPipeline</code> and <code>DefaultChannelHandlerContext</code> classes. A new instance of <code>Channel</code> and <code>ChannelPipele</code> is created for each new Connection that is accepted or established and it is not unusal to have 10  (or more ) <code>DefaultChannelHandlerContext</code> objects per <code>DefaultChannelPipeline</code>. For Non-Blocking Servers it is not unusal to handle a very big amout of concurrent connections, which in our case was creating many instances of the mentioned classes. Those stayed alive for a long time as connections may be long-living. One of our users was testing 1M+ concurrent connections at this time and saw a big amount of heap space taken up because of the <code>AtomicLong</code> and <code>AtomicReference</code> instances we were using. By replacing those with AtomicField*Updater we was able to save about 500M of memory which in combination with other changes made a difference of 3 GB less memory usage.</p>
+        
+        <p>For more details on the specific issue please have a look at those two issues: <a href="https://github.com/netty/netty/issues/920">#920</a> and <a href="https://github.com/netty/netty/issues/995">#995</a></p>
+        
+        <p>On thing to note is that there is no <code>AtomicBooleanFieldUpdater</code> which you could use to replace <code>AtomicBoolean</code>. This is not a problem, just use <code>AtomicIntegerFieldUpdater</code> with value 0 as false and 1 as true. Problem solved ;)</p>
+        
+        <h2 id="gimme-some-numbers">Gimme some numbers</h2>
+        <p>So after all of this it would be nice to actually proof it. So let us do some simple test here. We create a Class which will contain 10 AtomicLong  and 10 AtomicReference instances and instance the class itself 1M times. This kind of mimic the pattern we saw within <a href="http://netty.io">Netty</a>.</p>
+        
+        <p>Let us first have a look at the actual code:</p>
+        
+        <pre><code>public class AtomicExample {&#x000A;  &#x000A;      final AtomicLong atomic1 = new AtomicLong(0);&#x000A;      final AtomicLong atomic2 = new AtomicLong(0);&#x000A;      final AtomicLong atomic3 = new AtomicLong(0);&#x000A;      final AtomicLong atomic4 = new AtomicLong(0);&#x000A;      final AtomicLong atomic5 = new AtomicLong(0);&#x000A;      final AtomicLong atomic6 = new AtomicLong(0);&#x000A;      final AtomicLong atomic7 = new AtomicLong(0);&#x000A;      final AtomicLong atomic8 = new AtomicLong(0);&#x000A;      final AtomicLong atomic9 = new AtomicLong(0);&#x000A;      final AtomicLong atomic10 = new AtomicLong(0);&#x000A;      final AtomicReference atomic11 = new AtomicReference&lt;String&gt;("String");&#x000A;      final AtomicReference atomic12 = new AtomicReference&lt;String&gt;("String");&#x000A;      final AtomicReference atomic13 = new AtomicReference&lt;String&gt;("String");&#x000A;      final AtomicReference atomic14 = new AtomicReference&lt;String&gt;("String");&#x000A;      final AtomicReference atomic15 = new AtomicReference&lt;String&gt;("String");&#x000A;      final AtomicReference atomic16 = new AtomicReference&lt;String&gt;("String");&#x000A;      final AtomicReference atomic17 = new AtomicReference&lt;String&gt;("String");&#x000A;      final AtomicReference atomic18 = new AtomicReference&lt;String&gt;("String");&#x000A;      final AtomicReference atomic19 = new AtomicReference&lt;String&gt;("String");&#x000A;      final AtomicReference atomic20 = new AtomicReference&lt;String&gt;("String");&#x000A;  &#x000A;      public static void main(String[] args) throws Exception {&#x000A;          List&lt;AtomicExample&gt; list = new LinkedList&lt;AtomicExample&gt;();&#x000A;          for (int i = 0; i &lt; 1000000; i++) {&#x000A;              list.add(new AtomicExample());&#x000A;          }&#x000A;          System.out.println("Created instances 1000000");&#x000A;  &#x000A;          System.in.read();&#x000A;      }&#x000A;  }&#x000A;  </code></pre>
+        
+        <p>This code mimics the creation of 1M instances which each has 10 <code>AtomicLong</code> instances and 10 <code>AtomicReference</code> instances. You should be think his is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but which are still related. Like all of them are created for each new connection.</p>
+        
+        <p>Now let us have a look at how much memory is retained by them. For this I used Yourkit but any other tool which can inspect heap-dumps should just work fine.</p>
+        
+        <p><img src="/blog/images/AtomicExample.png" alt="AtomicExample" title="Memory usage of AtomicExample" /></p>
+        
+        <p>As you can see AtomicLong and AtomicReference took about about 400MB of memory where AtomicExample itself takes up 96MB. This makes up a a sum of ca. 500MB memory that is used by each AtomicExample instance that is created.</p>
+        
+        <p>Now let us do a second version of this class but replace <code>AtomicLong</code> with <code>volatile long</code> and <code>AtomicLongFieldUpdater</code>. Beside this we also replace <code>AtomicReference</code> with <code>volatile String</code> and <code>AtomicReferenceFieldUpdater</code>.</p>
+        
+        <p>The code looks like this now:</p>
+        
+        <pre><code>public class AtomicFieldExample {&#x000A;  &#x000A;      volatile long atomic1 = 0;&#x000A;      volatile long atomic2 = 0;&#x000A;      volatile long atomic3 = 0;&#x000A;      volatile long atomic4 = 0;&#x000A;      volatile long atomic5 = 0;&#x000A;      volatile long atomic6 = 0;&#x000A;      volatile long atomic7 = 0;&#x000A;      volatile long atomic8 = 0;&#x000A;      volatile long atomic9 = 0;&#x000A;      volatile long atomic10 = 0;&#x000A;      volatile String atomic11 = "String";&#x000A;      volatile String atomic12 = "String";&#x000A;      volatile String atomic13 = "String";&#x000A;      volatile String atomic14 = "String";&#x000A;      volatile String atomic15 = "String";&#x000A;      volatile String atomic16 = "String";&#x000A;      volatile String atomic17 = "String";&#x000A;      volatile String atomic18 = "String";&#x000A;      volatile String atomic19 = "String";&#x000A;      volatile String atomic20 = "String";&#x000A;  &#x000A;      static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC1_UPDATER = &#x000A;              AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic1");&#x000A;      static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC2_UPDATER = &#x000A;              AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic2");&#x000A;      static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC3_UPDATER = &#x000A;              AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic3");&#x000A;      static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC4_UPDATER = &#x000A;              AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic4");&#x000A;      static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC5_UPDATER = &#x000A;              AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic5");&#x000A;      static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC6_UPDATER = &#x000A;              AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic6");&#x000A;      static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC7_UPDATER = &#x000A;              AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic7");&#x000A;      static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC8_UPDATER = &#x000A;              AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic8");&#x000A;      static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC9_UPDATER = &#x000A;              AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic9");&#x000A;      static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC10_UPDATER = &#x000A;              AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic10");&#x000A;      static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC11_UPDATER = &#x000A;              AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic11");&#x000A;      static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC12_UPDATER = &#x000A;              AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic12");&#x000A;      static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC13_UPDATER = &#x000A;              AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic13");&#x000A;      static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC14_UPDATER = &#x000A;              AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic14");&#x000A;      static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC15_UPDATER = &#x000A;              AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic15");&#x000A;      static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC16_UPDATER = &#x000A;              AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic16");&#x000A;      static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC17_UPDATER = &#x000A;              AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic17");&#x000A;      static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC18_UPDATER = &#x000A;              AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic18");&#x000A;      static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC19_UPDATER = &#x000A;              AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic19");&#x000A;      static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC20_UPDATER = &#x000A;              AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic20");&#x000A;  &#x000A;      public static void main(String[] args) throws Exception {&#x000A;          List&lt;AtomicFieldExample&gt; list = new LinkedList&lt;AtomicFieldExample&gt;();&#x000A;          for (int i = 0; i &lt; 1000000; i++) {&#x000A;              list.add(new AtomicFieldExample());&#x000A;          }&#x000A;          System.out.println("Created instances 1000000");&#x000A;  &#x000A;          System.in.read();&#x000A;      }&#x000A;  }&#x000A;  </code></pre>
+        
+        <p>As you see the code becomes a bit more bloated, hopefully it pays out. Again let us take a look at the memory usage as before.</p>
+        
+        <p><img src="/blog/images/AtomicFieldExample.png" alt="AtomicFieldExample" title="Memory usage of AtomicFieldExample" /></p>
+        
+        <p>As you can see from the screenshot the used memory is a lot smaller. In fact it now needs not more then ca. 136MB of memory for the 1M instances of the <code>AtomicFieldExample</code>. This is a nice improvement compared to the previous memory usage. Now think about how much memory you can save if you have a few cases where you can replace Atomic* classes with volatile and Atomic*FieldUpdater in classes that are instanced a lot.</p>
+        
+        <p>But it's not the whole story, as this does not contain the memory wasted because of all the referenced structs and orginating struct. How much is used exactly depends, but most of the times it's 4 bytes with <a href="https://wikis.oracle.com/display/HotSpotInternals/CompressedOops">CompressedOops</a> enabled (which is the default). But on a 64-Bit system the cost can be up to 8 bytes per reference. </p>
+      </div>
       <div class="comments">
         
                     <div id="disqus_thread"></div>
                     <script type="text/javascript">
                     var disqus_shortname = 'normanmaurer';
-                    var disqus_url = "/blog/2013/10/28/Less-known-concurrent-classes-Part-1/";
+                    var disqus_url = "http://normanmaurer.me/blog/2013/10/28/Less-known-concurrent-classes-Part-1/";
                     var disqus_developer = null;
-                    var disqus_identifier = "blog/2013-10-28-Less-known-concurrent-classes-Part-1";
+                    var disqus_identifier = null;
                     (function() {
                       var dsq = document.createElement("script"); dsq.type = "text/javascript"; dsq.async = true;
                       dsq.src = "http://normanmaurer.disqus.com/embed.js";
