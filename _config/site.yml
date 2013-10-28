@@ -3,7 +3,7 @@ title: Normans rant's and more
 
 profiles:
   production:
-    base_url: http://normanmaurer.github.io/blog.normanmaurer.me
+    base_url: http://normanmaurer.me
     deploy:
       host: github_pages
       # use gh-branch for repositories other than <username>.github.io
