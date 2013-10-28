@@ -197,6 +197,7 @@ To force the usage of CompressedOops you can pass the following flag to openjdk 
 To summaries it, it may pay off to replace Atomic* objects with the corresponding volatile + Atomic*FieldUpdater. How much you save in terms of memory varys depending on what you replace. But the saving can be huge, especially when we talk about small "Objects". 
 
 Let us do the math again:
+
  * `AtomicLong` = 24 bytes + 4 bytes (for the reference to it)
  * `volatile long` = 8 bytes
  
