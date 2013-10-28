@@ -1,6 +1,8 @@
 name: Normans rant's
 title: Normans rant's and more
 
+disqus: normanmaurer
+
 profiles:
   production:
     base_url: http://normanmaurer.me
