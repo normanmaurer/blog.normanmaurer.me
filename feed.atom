@@ -2,13 +2,13 @@
 <feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom">
   <id>http://normanmaurer.me/</id>
   <title>Normans rant's and more</title>
-  <updated>2013-10-28T17:47:21+01:00</updated>
+  <updated>2013-10-28T20:00:12+01:00</updated>
   <link href="http://normanmaurer.me/feed.atom" rel="self" type="application/atom+xml" />
   <link href="http://normanmaurer.me/" rel="alternate" type="text/html" />
   <entry>
     <id>http://normanmaurer.me/blog/2013/10/28/Less-known-concurrent-classes-Part-1/</id>
     <title>Less known concurrent classes - Atomic*FieldUpdater</title>
-    <updated>2013-10-28T17:47:21+01:00</updated>
+    <updated>2013-10-28T20:00:12+01:00</updated>
     <published>2013-10-28T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2013/10/28/Less-known-concurrent-classes-Part-1/" rel="alternate" type="text/html" />
     <author>
@@ -226,6 +226,22 @@
       &lt;p&gt;As you can see from the screenshot the used memory is a lot smaller. In fact it now needs not more then ca. 136MB of memory for the 1M instances of the &lt;code&gt;AtomicFieldExample&lt;/code&gt;. This is a nice improvement compared to the previous memory usage. Now think about how much memory you can save if you have a few cases where you can replace Atomic* classes with volatile and Atomic*FieldUpdater in classes that are instanced a lot.&lt;/p&gt;
       
       &lt;p&gt;But it's not the whole story, as this does not contain the memory wasted because of all the referenced structs and orginating struct. How much is used exactly depends, but most of the times it's 4 bytes with &lt;a href=&quot;https://wikis.oracle.com/display/HotSpotInternals/CompressedOops&quot;&gt;CompressedOops&lt;/a&gt; enabled (which is the default). But on a 64-Bit system the cost can be up to 8 bytes per reference. &lt;/p&gt;
+      
+      &lt;p&gt;To force the usage of CompressedOops you can pass the following flag to openjdk or oracle java:
+          -XX:+UseCompressedOops&lt;/p&gt;
+      
+      &lt;h2 id=&quot;summary&quot;&gt;Summary&lt;/h2&gt;
+      
+      &lt;p&gt;To summaries it, it may pay off to replace Atomic* objects with the corresponding volatile + Atomic*FieldUpdater. How much you save in terms of memory varys depending on what you replace. But the saving can be huge, especially when we talk about small &quot;Objects&quot;. &lt;/p&gt;
+      
+      &lt;p&gt;Let us do the math again:
+       * &lt;code&gt;AtomicLong&lt;/code&gt; = 24 bytes + 4 bytes (for the reference to it)
+       * &lt;code&gt;volatile long&lt;/code&gt; = 8 bytes&lt;/p&gt;
+      
+      &lt;p&gt;This gives us a saving of 16 bytes!&lt;/p&gt;
+      
+      &lt;h2 id=&quot;acknowledge&quot;&gt;Acknowledge&lt;/h2&gt;
+      &lt;p&gt;Special thanks go out to &lt;a href=&quot;https://twitter.com/nitsanw&quot;&gt;Nitsan Wakart&lt;/a&gt; and &lt;a href=&quot;https://twitter.com/daschl&quot;&gt;Michael Nitschinger&lt;/a&gt; for the review and feedback.&lt;/p&gt;
     </content>
   </entry>
 </feed>
