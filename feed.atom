@@ -2,13 +2,13 @@
 <feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom">
   <id>http://normanmaurer.github.io/blog.normanmaurer.me/</id>
   <title>Normans rant's and more</title>
-  <updated>2013-10-28T14:58:01+01:00</updated>
+  <updated>2013-10-28T15:00:34+01:00</updated>
   <link href="http://normanmaurer.github.io/blog.normanmaurer.me/feed.atom" rel="self" type="application/atom+xml" />
   <link href="http://normanmaurer.github.io/blog.normanmaurer.me/" rel="alternate" type="text/html" />
   <entry>
     <id>http://normanmaurer.github.io/blog.normanmaurer.me/blog/2013/10/28/Less-known-concurrent-classes-Part-1/</id>
     <title>Less known concurrent classes - Atomic*FieldUpdater</title>
-    <updated>2013-10-28T14:58:01+01:00</updated>
+    <updated>2013-10-28T15:00:34+01:00</updated>
     <published>2013-10-28T00:00:00+00:00</published>
     <link href="http://normanmaurer.github.io/blog.normanmaurer.me/blog/2013/10/28/Less-known-concurrent-classes-Part-1/" rel="alternate" type="text/html" />
     <author>
@@ -135,7 +135,7 @@
       
       &lt;p&gt;Now let us have a look at how much memory is retained by them. For this I used Yourkit but any other tool which can inspect heap-dumps should just work fine.&lt;/p&gt;
       
-      &lt;p&gt;&lt;img src=&quot;http://normanmaurer.github.io/blog.normanmaurer.me/blog/images/AtomicExample.png&quot; alt=&quot;AtomicExample&quot; title=&quot;Memory usage of AtomicExample&quot;&gt;&lt;/p&gt;
+      &lt;p&gt;&lt;img src=&quot;./images/AtomicExample.png&quot; alt=&quot;AtomicExample&quot; title=&quot;Memory usage of AtomicExample&quot;&gt;&lt;/p&gt;
       
       &lt;p&gt;As you can see AtomicLong and AtomicReference took about about 400MB of memory where AtomicExample itself takes up 96MB. This makes up a a sum of ca. 500MB memory that is used by each AtomicExample instance that is created.&lt;/p&gt;
       
@@ -221,7 +221,7 @@
       
       &lt;p&gt;As you see the code becomes a bit more bloaded, hopefully it pays out. Again let us take a look at the memory usage as before.&lt;/p&gt;
       
-      &lt;p&gt;&lt;img src=&quot;http://normanmaurer.github.io/blog.normanmaurer.me/blog/images/AtomicFieldExample.png&quot; alt=&quot;AtomicFieldExample&quot; title=&quot;Memory usage of AtomicFieldExample&quot;&gt;&lt;/p&gt;
+      &lt;p&gt;&lt;img src=&quot;./images/AtomicFieldExample.png&quot; alt=&quot;AtomicFieldExample&quot; title=&quot;Memory usage of AtomicFieldExample&quot;&gt;&lt;/p&gt;
       
       &lt;p&gt;As you can see from the screenshot the used memory is a lot smaller. In fact it now needs not more then ca. 136MB of memory for the 1M instances of the &lt;code&gt;AtomicFieldExample&lt;/code&gt;. This is a nice improvement compared to the previous memory usage. Now think about how much memory you can save if you have a few cases where you can replace Atomic* classes with volatile and Atomic*FieldUpdater in classes that are instanced a lot.&lt;/p&gt;
       
