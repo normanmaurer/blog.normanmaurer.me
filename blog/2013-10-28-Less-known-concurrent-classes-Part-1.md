@@ -188,3 +188,19 @@ As you see the code becomes a bit more bloated, hopefully it pays out. Again let
 As you can see from the screenshot the used memory is a lot smaller. In fact it now needs not more then ca. 136MB of memory for the 1M instances of the `AtomicFieldExample`. This is a nice improvement compared to the previous memory usage. Now think about how much memory you can save if you have a few cases where you can replace Atomic* classes with volatile and Atomic*FieldUpdater in classes that are instanced a lot.
 
 But it's not the whole story, as this does not contain the memory wasted because of all the referenced structs and orginating struct. How much is used exactly depends, but most of the times it's 4 bytes with [CompressedOops](https://wikis.oracle.com/display/HotSpotInternals/CompressedOops) enabled (which is the default). But on a 64-Bit system the cost can be up to 8 bytes per reference. 
+
+To force the usage of CompressedOops you can pass the following flag to openjdk or oracle java:
+    -XX:+UseCompressedOops
+
+## Summary 
+
+To summaries it, it may pay off to replace Atomic* objects with the corresponding volatile + Atomic*FieldUpdater. How much you save in terms of memory varys depending on what you replace. But the saving can be huge, especially when we talk about small "Objects". 
+
+Let us do the math again:
+ * AtomicLong = 24 bytes + 4 bytes (for the reference to it)
+ * volatile long = 8 bytes
+ 
+This gives us a saving of 16 bytes!
+
+
+
