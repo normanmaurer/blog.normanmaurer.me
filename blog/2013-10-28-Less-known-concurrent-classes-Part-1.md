@@ -47,14 +47,14 @@ And this is one of the weak things when using Atomic*FieldUpdater as there is no
 
 You may ask you self about if it worth it at all? As always it depends... If you only create a few thousands instances of the class that use Atomic* it may not worth it at all. But there may be situations where you need to create millions of them and keep the alive for a long time. In those situations it can have a big impact.
 
-In the case of the [Netty Project](http://netty.io) we used `AtomicLong` and `AtomicReference` in our `Channel`, `DefaultChannelPipeline` and `DefaultChannelHandlerContext` classes. A new instance of `Channel` and `ChannelPipele` is created for each new Connection that is accepted or established and it is not unusal to have 10  (or more ) `DefaultChannelHandlerContext` objects per `DefaultChannelPipeline`. For Non-Blocking Servers it is not unusal to handle a very big amout of concurrent connections, which in our case was creating many instances of the mentioned classes. Those stayed alive for a long time as connections may be long-living. One of our users was testing 1M+ concurrent connections at this time and saw a big amount of heap space taken up because of the `AtomicLongi` and `AtomicReference` instances we were using. By replacing those with AtomicField*Updater we was able to save about 500M of memory which in combination with other changes made a difference of 3 GB less memory usage.
+In the case of the [Netty Project](http://netty.io) we used `AtomicLong` and `AtomicReference` in our `Channel`, `DefaultChannelPipeline` and `DefaultChannelHandlerContext` classes. A new instance of `Channel` and `ChannelPipele` is created for each new Connection that is accepted or established and it is not unusal to have 10  (or more ) `DefaultChannelHandlerContext` objects per `DefaultChannelPipeline`. For Non-Blocking Servers it is not unusal to handle a very big amout of concurrent connections, which in our case was creating many instances of the mentioned classes. Those stayed alive for a long time as connections may be long-living. One of our users was testing 1M+ concurrent connections at this time and saw a big amount of heap space taken up because of the `AtomicLong` and `AtomicReference` instances we were using. By replacing those with AtomicField*Updater we was able to save about 500M of memory which in combination with other changes made a difference of 3 GB less memory usage.
 
 For more details on the specific issue please have a look at those two issues: [#920](https://github.com/netty/netty/issues/920) and [#995](https://github.com/netty/netty/issues/995)
 
 On thing to note is that there is no `AtomicBooleanFieldUpdater` which you could use to replace `AtomicBoolean`. This is not a problem, just use `AtomicIntegerFieldUpdater` with value 0 as false and 1 as true. Problem solved ;)
 
 ## Gimme some numbers
-So after all of this it would be nice to actual proof it. So let us do some simple test here. We create a Class which will contain 10 AtomicLong  and 10 AtomicReference instances and instance the class itself 1M times. This kind of mimic the pattern we saw within [Netty](http://netty.io).
+So after all of this it would be nice to actually proof it. So let us do some simple test here. We create a Class which will contain 10 AtomicLong  and 10 AtomicReference instances and instance the class itself 1M times. This kind of mimic the pattern we saw within [Netty](http://netty.io).
 
 
 Let us first have a look at the actual code:
@@ -89,11 +89,11 @@ Let us first have a look at the actual code:
             }
             System.out.println("Created instances 1000000");
 
-            Thread.sleep(60 * 1000 * 60);
+            System.in.read();
         }
     }
 
-This code mimics the creation of 1M instances which each has 10 `AtomicLong` instances and 10 `AtomicReference` instances. You may thing this is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but which are still related. Like all of them are created for each new connection.
+This code mimics the creation of 1M instances which each has 10 `AtomicLong` instances and 10 `AtomicReference` instances. You should be think his is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but which are still related. Like all of them are created for each new connection.
 
 Now let us have a look at how much memory is retained by them. For this I used Yourkit but any other tool which can inspect heap-dumps should just work fine.
 
@@ -176,15 +176,15 @@ The code looks like this now:
             }
             System.out.println("Created instances 1000000");
 
-            Thread.sleep(60 * 1000 * 60);
+            System.in.read();
         }
     }
 
-As you see the code becomes a bit more bloaded, hopefully it pays out. Again let us take a look at the memory usage as before.
+As you see the code becomes a bit more bloated, hopefully it pays out. Again let us take a look at the memory usage as before.
 
 
 ![AtomicFieldExample](/blog/images/AtomicFieldExample.png "Memory usage of AtomicFieldExample")
 
 As you can see from the screenshot the used memory is a lot smaller. In fact it now needs not more then ca. 136MB of memory for the 1M instances of the `AtomicFieldExample`. This is a nice improvement compared to the previous memory usage. Now think about how much memory you can save if you have a few cases where you can replace Atomic* classes with volatile and Atomic*FieldUpdater in classes that are instanced a lot.
 
-But it's not the whole story, as this does not contain the memory wasted because of all the referenced structs and orginating struct. How much is used exactly depends, but most of the times it's 4 bytes with compressed Ops enabled (which is the default). But on a 64-Bit system the cost can be up to 8 bytes per reference. 
+But it's not the whole story, as this does not contain the memory wasted because of all the referenced structs and orginating struct. How much is used exactly depends, but most of the times it's 4 bytes with [CompressedOops](https://wikis.oracle.com/display/HotSpotInternals/CompressedOops) enabled (which is the default). But on a 64-Bit system the cost can be up to 8 bytes per reference. 

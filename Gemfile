@@ -39,3 +39,6 @@ gem 'kramdown', '>= 0.14.2'                             # If using Markdown
 # gem 'uglifier', '>= 1.3.0'                              # If using the minify transformer
 # gem 'htmlcompressor', '>= 0.0.3'                        # If using the minify transformer
 
+gem 'disqus', '~> 1.0.4'
+gem 'nokogiri', '~> 1.5.9'
+gem 'htmlentities', '~> 4.3.1'
