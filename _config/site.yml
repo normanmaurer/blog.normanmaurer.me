@@ -1,10 +1,10 @@
 name: Normans rant's
 title: Normans rant's and more
 
-disqus: normanmaurer
 
 profiles:
   production:
+    disqus: normanmaurer
     base_url: http://normanmaurer.me
     deploy:
       host: github_pages
