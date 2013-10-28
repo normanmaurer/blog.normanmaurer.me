@@ -121,9 +121,12 @@
             
             <p>To summaries it, it may pay off to replace Atomic* objects with the corresponding volatile + Atomic*FieldUpdater. How much you save in terms of memory varys depending on what you replace. But the saving can be huge, especially when we talk about small "Objects". </p>
             
-            <p>Let us do the math again:
-             * <code>AtomicLong</code> = 24 bytes + 4 bytes (for the reference to it)
-             * <code>volatile long</code> = 8 bytes</p>
+            <p>Let us do the math again:</p>
+            
+            <ul>
+              <li><code>AtomicLong</code> = 24 bytes + 4 bytes (for the reference to it)</li>
+              <li><code>volatile long</code> = 8 bytes</li>
+            </ul>
             
             <p>This gives us a saving of 16 bytes!</p>
             
@@ -222,9 +225,12 @@
         
         <p>To summaries it, it may pay off to replace Atomic* objects with the corresponding volatile + Atomic*FieldUpdater. How much you save in terms of memory varys depending on what you replace. But the saving can be huge, especially when we talk about small "Objects". </p>
         
-        <p>Let us do the math again:
-         * <code>AtomicLong</code> = 24 bytes + 4 bytes (for the reference to it)
-         * <code>volatile long</code> = 8 bytes</p>
+        <p>Let us do the math again:</p>
+        
+        <ul>
+          <li><code>AtomicLong</code> = 24 bytes + 4 bytes (for the reference to it)</li>
+          <li><code>volatile long</code> = 8 bytes</li>
+        </ul>
         
         <p>This gives us a saving of 16 bytes!</p>
         
