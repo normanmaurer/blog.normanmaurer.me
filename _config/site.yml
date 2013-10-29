@@ -6,6 +6,7 @@ profiles:
   production:
     disqus: normanmaurer
     base_url: http://normanmaurer.me
+    google_analytics: UA-45259657-1
     deploy:
       host: github_pages
       # use gh-branch for repositories other than <username>.github.io

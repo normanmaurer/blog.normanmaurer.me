@@ -6,4 +6,7 @@ Awestruct::Extensions::Pipeline.new do
   # Indexifier *must* come before Atomizer
   extension Awestruct::Extensions::Atomizer.new :posts, '/feed.atom'
   extension Awestruct::Extensions::Disqus.new()
+
+  helper Awestruct::Extensions::GoogleAnalytics
+
 end
