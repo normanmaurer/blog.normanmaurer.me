@@ -2,13 +2,13 @@
 <feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom">
   <id>http://normanmaurer.me/</id>
   <title>Normans rant's and more</title>
-  <updated>2013-10-29T07:47:20+01:00</updated>
+  <updated>2013-10-29T07:50:09+01:00</updated>
   <link href="http://normanmaurer.me/feed.atom" rel="self" type="application/atom+xml" />
   <link href="http://normanmaurer.me/" rel="alternate" type="text/html" />
   <entry>
     <id>http://normanmaurer.me/blog/2013/10/28/Less-known-concurrent-classes-Part-1/</id>
     <title>Less known concurrent classes - Atomic*FieldUpdater</title>
-    <updated>2013-10-29T07:47:20+01:00</updated>
+    <updated>2013-10-29T07:50:09+01:00</updated>
     <published>2013-10-28T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2013/10/28/Less-known-concurrent-classes-Part-1/" rel="alternate" type="text/html" />
     <author>
@@ -254,7 +254,7 @@
       
       &lt;p&gt;Beside the memory savings there are some other nice effect here, we did not mention before: 
        * Because we save Objects the Garbage Collector has less overhead to care about, as it needs to keep track of every Object.
-       * We save the tax of the build in monitor which comes as part of each Object&lt;/p&gt;
+       * We save the tax of the built in monitor which comes as part of each Object&lt;/p&gt;
       
       &lt;h2 id=&quot;summary&quot;&gt;Summary&lt;/h2&gt;
       
