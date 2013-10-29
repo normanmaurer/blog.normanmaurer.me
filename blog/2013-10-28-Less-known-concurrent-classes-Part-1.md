@@ -4,7 +4,7 @@ title: 'Less known concurrent classes - Atomic*FieldUpdater'
 author: normanmaurer
 ---
 
-Today I want to talk about one of the less known utility classes when it comes to atomic operations in Java. Everyone who ever has done some real work with the java.util.concurrent package should be aware of the Atomic* classes in there which helps you to do atomic operations on references, Longs, Integers, Booleans and more.
+Today I want to talk about one of the lesser known utility classes when it comes to atomic operations in Java. Everyone who ever has done some real work with the `java.util.concurrent` package should be aware of the Atomic* classes in there which helps you to do atomic operations on references, Longs, Integers, Booleans and more.
 
 The classes in question are all located in the [java.util.concurrent.atomic package](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/atomic/package-summary.html). 
 Like:
@@ -23,7 +23,7 @@ Using those is as easy as doing something like:
     ...
 
 So what is the big deal with them? It's about memory usage ... 
-Wouldn't it be nice to be able to just use a `volatile long` and so use less heap space? 
+Wouldn't it be nice to be able to just use a `volatile long`, save a object allocation and as a result use less memory? 
 
 > HELL YEAH!
 
@@ -51,12 +51,12 @@ You may ask you self about if it worth it at all? As always it depends... If you
 
 In the case of the [Netty Project](http://netty.io) we used `AtomicLong` and `AtomicReference` in our `Channel`, `DefaultChannelPipeline` and `DefaultChannelHandlerContext` classes. A new instance of `Channel` and `ChannelPipeline` is created for each new connection that is accepted or established and it is not unusal to have 10  (or more ) `DefaultChannelHandlerContext` objects per `DefaultChannelPipeline`. For Non-Blocking Servers it is not unusal to handle a large amout of concurrent connections, which in our case was creating many instances of the mentioned classes. Those stayed alive for a long time as connections may be long-living. One of our users was testing 1M+ concurrent connections and saw a large amount of the heap space taken up because of the `AtomicLong` and `AtomicReference` instances we were using. By replacing those with AtomicField*Updater we were able to save about 500 MB of memory which, in combination with other changes, reduced the memory footprint by 3 GB.
 
-For more details on the specific issue please have a look at those two issues: [#920](https://github.com/netty/netty/issues/920) and [#995](https://github.com/netty/netty/issues/995)
+For more details on the specific enhancements please have a look at those two issues: [#920](https://github.com/netty/netty/issues/920) and [#995](https://github.com/netty/netty/issues/995)
 
-On thing to note is that there is no `AtomicBooleanFieldUpdater` that you could use to replace `AtomicBoolean`. This is not a problem, just use `AtomicIntegerFieldUpdater` with value 0 as false and 1 as true. Problem solved ;)
+On thing to note is that there is no `AtomicBooleanFieldUpdater` that you could use to replace a `AtomicBoolean`. This is not a problem, just use `AtomicIntegerFieldUpdater` with value 0 as false and 1 as true. Problem solved ;)
 
 ## Gimme some numbers
-So after all of this it would be nice to actually prove it. So let us do a simple test here. We create a Class which will contain 10 `AtomicLong` and 10 i`AtomicReference` instances and instantiate itself 1M times. This kind of mimic the pattern we saw within [Netty](http://netty.io).
+Now with some theory behind us, let's proof our claim. Let us do a simple test here: we create a Class which will contain 10 `AtomicLong` and 10 `AtomicReference` instances and instantiate itself 1M times. This resembles the pattern we saw within [Netty](http://netty.io).
 
 
 Let us first have a look at the actual code:
@@ -95,7 +95,7 @@ Let us first have a look at the actual code:
         }
     }
 
-This code mimics the creation of 1M instances which each has 10 `AtomicLong` instances and 10 `AtomicReference` instances. You would think this is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but that is still related. Like all of them are created for each new connection.
+You may think this is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but which are still related. Like all of them are created for each new connection.
 
 Now let us have a look at how much memory is retained by them. For this I used YourKit but any other tool which can inspect heap-dumps should just work fine.
 
@@ -103,7 +103,7 @@ Now let us have a look at how much memory is retained by them. For this I used Y
 
 As you can see `AtomicLong` and `AtomicReference` instances took about about 400 MB of memory where `AtomicExample` itself takes up 96MB. This makes up a a sum of ca. 500 MB memory that is used by each AtomicExample instance that is created.
 
-Now let us do a second version of this class but replace `AtomicLong` with `volatile long` and `AtomicLongFieldUpdater`. Beside this we also replace `AtomicReference` with `volatile String` and `AtomicReferenceFieldUpdater`.
+Now let's do a second version of this class but replace `AtomicLong` with `volatile long` and `AtomicLongFieldUpdater`. Beside this we also replace `AtomicReference` with `volatile String` and `AtomicReferenceFieldUpdater`.
 
 The code looks like this now:
 
