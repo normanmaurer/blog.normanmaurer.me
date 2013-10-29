@@ -205,7 +205,7 @@ So it only pays off because we save the extra memory overhead of AtomicLong and 
 
 Beside the memory savings there are some other nice effect here, we did not mention before: 
  * Because we save Objects the Garbage Collector has less overhead to care about, as it needs to keep track of every Object.
- * We save the tax of the build in monitor which comes as part of each Object
+ * We save the tax of the built in monitor which comes as part of each Object
 
 ## Summary 
 
