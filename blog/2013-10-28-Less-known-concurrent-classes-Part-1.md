@@ -13,7 +13,7 @@ Like:
  * `AtomicInteger`
  * `AtomicReference`
  * `AtomicLong` 
- ....
+ * ....
 
 Using those is as easy as doing something like:
 
