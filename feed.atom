@@ -2,13 +2,13 @@
 <feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom">
   <id>http://normanmaurer.me/</id>
   <title>Normans rant's and more</title>
-  <updated>2013-10-28T21:02:07+01:00</updated>
+  <updated>2013-10-29T07:42:28+01:00</updated>
   <link href="http://normanmaurer.me/feed.atom" rel="self" type="application/atom+xml" />
   <link href="http://normanmaurer.me/" rel="alternate" type="text/html" />
   <entry>
     <id>http://normanmaurer.me/blog/2013/10/28/Less-known-concurrent-classes-Part-1/</id>
     <title>Less known concurrent classes - Atomic*FieldUpdater</title>
-    <updated>2013-10-28T21:02:07+01:00</updated>
+    <updated>2013-10-29T07:42:28+01:00</updated>
     <published>2013-10-28T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2013/10/28/Less-known-concurrent-classes-Part-1/" rel="alternate" type="text/html" />
     <author>
@@ -61,7 +61,7 @@
         &lt;p&gt;HELL YEAH!&lt;/p&gt;
       &lt;/blockquote&gt;
       
-      &lt;p&gt;This is exactly where the not widely known Atomic&lt;em&gt;FieldUpdater comes in. Those allow you to do atomic operations on a volatile field and so save the space which is needed to hold the object that you would create if you would use something like &lt;code&gt;AtomicLong&lt;/code&gt;. This works as Atomic&lt;/em&gt;FieldUpdater is used as a static field and so not need to create a new Object everytime.&lt;/p&gt;
+      &lt;p&gt;This is exactly where the not widely known Atomic*FieldUpdater comes in. Those allow you to do &quot;atomic&quot; operations on a volatile field and so save the space which is needed to hold the object that you would create if you would use something like &lt;code&gt;AtomicLong&lt;/code&gt;. This works as Atomic*FieldUpdater is used as a static field and so not need to create a new Object everytime.&lt;/p&gt;
       
       &lt;blockquote&gt;
         &lt;p&gt;Neat, isn't it ?&lt;/p&gt;
@@ -69,7 +69,7 @@
       
       &lt;p&gt;So to replace the above usage of &lt;code&gt;AtomicLong&lt;/code&gt; your code would look like:&lt;/p&gt;
       
-      &lt;pre&gt;&lt;code&gt;    private static final AtomicLongFieldUpdater&amp;lt;TheDeclaringClass&amp;gt; ATOMIC_UPDATER =
+      &lt;pre&gt;&lt;code&gt;private static final AtomicLongFieldUpdater&amp;lt;TheDeclaringClass&amp;gt; ATOMIC_UPDATER =
               AtomicLongFieldUpdater.newUpdater(TheDeclaringClass.class, &quot;atomic&quot;);
       
       private volatile long atomic;
@@ -80,19 +80,19 @@
           ...     }
       &lt;/code&gt;&lt;/pre&gt;
       
-      &lt;p&gt;This works with some reflection magic which is used when you create the &lt;code&gt;AtomicLongFieldUpdater&lt;/code&gt; instance. The passed in fieldname (in this case atomic) will be used to lookup the declared volatile field. Thus you must be sure it matches. 
+      &lt;p&gt;This works with some reflection magic which is used when you create the &lt;code&gt;AtomicLongFieldUpdater&lt;/code&gt; instance. The field names passed in as argument (in this case atomic) will be used to lookup the declared volatile field. Thus you must be sure it matches. 
       And this is one of the weak things when using Atomic*FieldUpdater as there is no way for the compiler to detect that those match. So you need to keep an eye on this by yourself. &lt;/p&gt;
       
       &lt;p&gt;You may ask you self about if it worth it at all? As always it depends… If you only create a few thousands instances of the class that use Atomic* it may not worth it at all. But there may be situations where you need to create millions of them and keep the alive for a long time. In those situations it can have a big impact.&lt;/p&gt;
       
-      &lt;p&gt;In the case of the &lt;a href=&quot;http://netty.io&quot;&gt;Netty Project&lt;/a&gt; we used &lt;code&gt;AtomicLong&lt;/code&gt; and &lt;code&gt;AtomicReference&lt;/code&gt; in our &lt;code&gt;Channel&lt;/code&gt;, &lt;code&gt;DefaultChannelPipeline&lt;/code&gt; and &lt;code&gt;DefaultChannelHandlerContext&lt;/code&gt; classes. A new instance of &lt;code&gt;Channel&lt;/code&gt; and &lt;code&gt;ChannelPipele&lt;/code&gt; is created for each new Connection that is accepted or established and it is not unusal to have 10  (or more ) &lt;code&gt;DefaultChannelHandlerContext&lt;/code&gt; objects per &lt;code&gt;DefaultChannelPipeline&lt;/code&gt;. For Non-Blocking Servers it is not unusal to handle a very big amout of concurrent connections, which in our case was creating many instances of the mentioned classes. Those stayed alive for a long time as connections may be long-living. One of our users was testing 1M+ concurrent connections at this time and saw a big amount of heap space taken up because of the &lt;code&gt;AtomicLong&lt;/code&gt; and &lt;code&gt;AtomicReference&lt;/code&gt; instances we were using. By replacing those with AtomicField*Updater we was able to save about 500M of memory which in combination with other changes made a difference of 3 GB less memory usage.&lt;/p&gt;
+      &lt;p&gt;In the case of the &lt;a href=&quot;http://netty.io&quot;&gt;Netty Project&lt;/a&gt; we used &lt;code&gt;AtomicLong&lt;/code&gt; and &lt;code&gt;AtomicReference&lt;/code&gt; in our &lt;code&gt;Channel&lt;/code&gt;, &lt;code&gt;DefaultChannelPipeline&lt;/code&gt; and &lt;code&gt;DefaultChannelHandlerContext&lt;/code&gt; classes. A new instance of &lt;code&gt;Channel&lt;/code&gt; and &lt;code&gt;ChannelPipeline&lt;/code&gt; is created for each new connection that is accepted or established and it is not unusal to have 10  (or more ) &lt;code&gt;DefaultChannelHandlerContext&lt;/code&gt; objects per &lt;code&gt;DefaultChannelPipeline&lt;/code&gt;. For Non-Blocking Servers it is not unusal to handle a large amout of concurrent connections, which in our case was creating many instances of the mentioned classes. Those stayed alive for a long time as connections may be long-living. One of our users was testing 1M+ concurrent connections and saw a large amount of the heap space taken up because of the &lt;code&gt;AtomicLong&lt;/code&gt; and &lt;code&gt;AtomicReference&lt;/code&gt; instances we were using. By replacing those with AtomicField*Updater we were able to save about 500 MB of memory which, in combination with other changes, reduced the memory footprint by 3 GB.&lt;/p&gt;
       
       &lt;p&gt;For more details on the specific issue please have a look at those two issues: &lt;a href=&quot;https://github.com/netty/netty/issues/920&quot;&gt;#920&lt;/a&gt; and &lt;a href=&quot;https://github.com/netty/netty/issues/995&quot;&gt;#995&lt;/a&gt;&lt;/p&gt;
       
-      &lt;p&gt;On thing to note is that there is no &lt;code&gt;AtomicBooleanFieldUpdater&lt;/code&gt; which you could use to replace &lt;code&gt;AtomicBoolean&lt;/code&gt;. This is not a problem, just use &lt;code&gt;AtomicIntegerFieldUpdater&lt;/code&gt; with value 0 as false and 1 as true. Problem solved ;)&lt;/p&gt;
+      &lt;p&gt;On thing to note is that there is no &lt;code&gt;AtomicBooleanFieldUpdater&lt;/code&gt; that you could use to replace &lt;code&gt;AtomicBoolean&lt;/code&gt;. This is not a problem, just use &lt;code&gt;AtomicIntegerFieldUpdater&lt;/code&gt; with value 0 as false and 1 as true. Problem solved ;)&lt;/p&gt;
       
       &lt;h2 id=&quot;gimme-some-numbers&quot;&gt;Gimme some numbers&lt;/h2&gt;
-      &lt;p&gt;So after all of this it would be nice to actually proof it. So let us do some simple test here. We create a Class which will contain 10 AtomicLong  and 10 AtomicReference instances and instance the class itself 1M times. This kind of mimic the pattern we saw within &lt;a href=&quot;http://netty.io&quot;&gt;Netty&lt;/a&gt;.&lt;/p&gt;
+      &lt;p&gt;So after all of this it would be nice to actually prove it. So let us do a simple test here. We create a Class which will contain 10 &lt;code&gt;AtomicLong&lt;/code&gt; and 10 i&lt;code&gt;AtomicReference&lt;/code&gt; instances and instantiate itself 1M times. This kind of mimic the pattern we saw within &lt;a href=&quot;http://netty.io&quot;&gt;Netty&lt;/a&gt;.&lt;/p&gt;
       
       &lt;p&gt;Let us first have a look at the actual code:&lt;/p&gt;
       
@@ -131,13 +131,13 @@
       }
       &lt;/code&gt;&lt;/pre&gt;
       
-      &lt;p&gt;This code mimics the creation of 1M instances which each has 10 &lt;code&gt;AtomicLong&lt;/code&gt; instances and 10 &lt;code&gt;AtomicReference&lt;/code&gt; instances. You should be think his is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but which are still related. Like all of them are created for each new connection.&lt;/p&gt;
+      &lt;p&gt;This code mimics the creation of 1M instances which each has 10 &lt;code&gt;AtomicLong&lt;/code&gt; instances and 10 &lt;code&gt;AtomicReference&lt;/code&gt; instances. You would think this is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but that is still related. Like all of them are created for each new connection.&lt;/p&gt;
       
-      &lt;p&gt;Now let us have a look at how much memory is retained by them. For this I used Yourkit but any other tool which can inspect heap-dumps should just work fine.&lt;/p&gt;
+      &lt;p&gt;Now let us have a look at how much memory is retained by them. For this I used YourKit but any other tool which can inspect heap-dumps should just work fine.&lt;/p&gt;
       
       &lt;p&gt;&lt;img src=&quot;http://normanmaurer.me/blog/images/AtomicExample.png&quot; alt=&quot;AtomicExample&quot; title=&quot;Memory usage of AtomicExample&quot;&gt;&lt;/p&gt;
       
-      &lt;p&gt;As you can see AtomicLong and AtomicReference took about about 400MB of memory where AtomicExample itself takes up 96MB. This makes up a a sum of ca. 500MB memory that is used by each AtomicExample instance that is created.&lt;/p&gt;
+      &lt;p&gt;As you can see &lt;code&gt;AtomicLong&lt;/code&gt; and &lt;code&gt;AtomicReference&lt;/code&gt; instances took about about 400 MB of memory where &lt;code&gt;AtomicExample&lt;/code&gt; itself takes up 96MB. This makes up a a sum of ca. 500 MB memory that is used by each AtomicExample instance that is created.&lt;/p&gt;
       
       &lt;p&gt;Now let us do a second version of this class but replace &lt;code&gt;AtomicLong&lt;/code&gt; with &lt;code&gt;volatile long&lt;/code&gt; and &lt;code&gt;AtomicLongFieldUpdater&lt;/code&gt;. Beside this we also replace &lt;code&gt;AtomicReference&lt;/code&gt; with &lt;code&gt;volatile String&lt;/code&gt; and &lt;code&gt;AtomicReferenceFieldUpdater&lt;/code&gt;.&lt;/p&gt;
       
@@ -223,18 +223,35 @@
       
       &lt;p&gt;&lt;img src=&quot;http://normanmaurer.me/blog/images/AtomicFieldExample.png&quot; alt=&quot;AtomicFieldExample&quot; title=&quot;Memory usage of AtomicFieldExample&quot;&gt;&lt;/p&gt;
       
-      &lt;p&gt;As you can see from the screenshot the used memory is a lot smaller. In fact it now needs not more then ca. 136MB of memory for the 1M instances of the &lt;code&gt;AtomicFieldExample&lt;/code&gt;. This is a nice improvement compared to the previous memory usage. Now think about how much memory you can save if you have a few cases where you can replace Atomic* classes with volatile and Atomic*FieldUpdater in classes that are instanced a lot.&lt;/p&gt;
+      &lt;p&gt;As you can see from the screenshot the memory footprint is a lot smaller. In fact it now needs not more then ca. 136MB of memory for the 1M instances of &lt;code&gt;AtomicFieldExample&lt;/code&gt;. This is a nice improvement compared to the baseline memory footprint. Now think about how much memory you can save if you have a few cases where you can replace Atomic* classes with volatile and Atomic*FieldUpdater in classes that are instanced a lot.&lt;/p&gt;
       
-      &lt;p&gt;But it's not the whole story, as this does not contain the memory wasted because of all the referenced structs and orginating struct. How much is used exactly depends, but most of the times it's 4 bytes with &lt;a href=&quot;https://wikis.oracle.com/display/HotSpotInternals/CompressedOops&quot;&gt;CompressedOops&lt;/a&gt; enabled (which is the default). But on a 64-Bit system the cost can be up to 8 bytes per reference. &lt;/p&gt;
+      &lt;p&gt;You may ask yourself why the &lt;code&gt;AtomicFieldExample&lt;/code&gt; is larger then the &lt;code&gt;AtomicExample&lt;/code&gt;. This is caused by the extra memory you need to store the references + longs. 
+      &lt;code&gt;AtomicFieldExample&lt;/code&gt; has 10 longs + 10 references. This gives us:&lt;/p&gt;
       
-      &lt;p&gt;To force the usage of CompressedOops you can pass the following flag to openjdk or oracle java:
-          -XX:+UseCompressedOops&lt;/p&gt;
+      &lt;ul&gt;
+        &lt;li&gt;10 * 8 bytes (for the longs)&lt;/li&gt;
+        &lt;li&gt;10 * 4 bytes (for the references)&lt;/li&gt;
+        &lt;li&gt;1 * 16 bytes (for itself)&lt;/li&gt;
+      &lt;/ul&gt;
+      
+      &lt;p&gt;&lt;code&gt;AtomicExample&lt;/code&gt; has 20 refernces. This gives us:&lt;/p&gt;
+      
+      &lt;ul&gt;
+        &lt;li&gt;20 * 4 bytes (for the references)&lt;/li&gt;
+        &lt;li&gt;1 * 16 bytes (for itself)&lt;/li&gt;
+      &lt;/ul&gt;
+      
+      &lt;p&gt;So it only pays off because we save the extra memory overhead of AtomicLong and AtomicReference itself. So to put it straight: &lt;strong&gt;Every Object has a fixed overhead&lt;/strong&gt;.&lt;/p&gt;
+      
+      &lt;p&gt;Beside the memory savings there are some other nice effect here, we did not mention before: 
+       * Because we save Objects the Garbage Collector has less overhead to care about, as it needs to keep track of every Object.
+       * We save the tax of the build in monitor which comes as part of each Object&lt;/p&gt;
       
       &lt;h2 id=&quot;summary&quot;&gt;Summary&lt;/h2&gt;
       
-      &lt;p&gt;To summaries it, it may pay off to replace Atomic* objects with the corresponding volatile + Atomic*FieldUpdater. How much you save in terms of memory varys depending on what you replace. But the saving can be huge, especially when we talk about small &quot;Objects&quot;. &lt;/p&gt;
+      &lt;p&gt;To summarize it, it may pay off to replace Atomic* objects with the corresponding volatile + Atomic*FieldUpdater. How much you save in terms of memory varies depending on what you replace. But the savings can be huge, especially when we talk about small &quot;Objects&quot;. &lt;/p&gt;
       
-      &lt;p&gt;Let us do the math again:&lt;/p&gt;
+      &lt;p&gt;Let us do the maths again:&lt;/p&gt;
       
       &lt;ul&gt;
         &lt;li&gt;
@@ -245,8 +262,8 @@
       
       &lt;p&gt;This gives us a saving of 16 bytes!&lt;/p&gt;
       
-      &lt;h2 id=&quot;acknowledge&quot;&gt;Acknowledge&lt;/h2&gt;
-      &lt;p&gt;Special thanks go out to &lt;a href=&quot;https://twitter.com/nitsanw&quot;&gt;Nitsan Wakart&lt;/a&gt; and &lt;a href=&quot;https://twitter.com/daschl&quot;&gt;Michael Nitschinger&lt;/a&gt; for the review and feedback.&lt;/p&gt;
+      &lt;h2 id=&quot;acknowledgements&quot;&gt;Acknowledgements&lt;/h2&gt;
+      &lt;p&gt;Special thanks go out to &lt;a href=&quot;https://twitter.com/nitsanw&quot;&gt;Nitsan Wakart&lt;/a&gt;, &lt;a href=&quot;https://twitter.com/daschl&quot;&gt;Michael Nitschinger&lt;/a&gt; and &lt;a href=&quot;https://twitter.com/tsunanet&quot;&gt;Benoît Sigoure&lt;/a&gt; for the review and feedback.&lt;/p&gt;
     </content>
   </entry>
 </feed>
