@@ -6,7 +6,9 @@ author: normanmaurer
 
 Today I want to talk about one of the less known utility classes when it comes to atomic operations in Java. Everyone who ever has done some real work with the java.util.concurrent package should be aware of the Atomic* classes in there which helps you to do atomic operations on references, Longs, Integers, Booleans and more.
 
-The classes in question are all located in the [java.util.concurrent.atomic package](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/atomic/package-summary.html). Like:
+The classes in question are all located in the [java.util.concurrent.atomic package](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/atomic/package-summary.html). 
+Like:
+
  * `AtomicBoolean`
  * `AtomicInteger`
  * `AtomicReference`
