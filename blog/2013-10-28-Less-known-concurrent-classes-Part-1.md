@@ -4,7 +4,7 @@ title: 'Less known concurrent classes - Atomic*FieldUpdater'
 author: normanmaurer
 ---
 
-Today I want to talk about one of the less known utility classes when it comes to atomic operations in Java. Everyone who ever has done some real work with the java.util.concurrent package should be aware of the Atomic* classes in there which helps you to do atomic operations on references, Longs, Integers, Booleans and more.
+Today I want to talk about one of the lesser known utility classes when it comes to atomic operations in Java. Everyone who has ever done some real work with the `java.util.concurrent` package should be aware of the Atomic* classes which help you to do atomic operations on references, Longs, Integers, Booleans and more.
 
 The classes in question are all located in the [java.util.concurrent.atomic package](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/atomic/package-summary.html). Like:
  * `AtomicBoolean`
@@ -21,18 +21,18 @@ Using those is as easy as doing something like:
     ...
 
 So what is the big deal with them? It's about memory usage ... 
-Wouldn't it be nice to be able to just use a `volatile long` and so use less heap space? 
+Wouldn't it be nice to be able to just use a `volatile long`, save a object allocation and as a result use less heap space? 
 
 > HELL YEAH!
 
-This is exactly where the not widely known Atomic*FieldUpdater comes in. Those allow you to do atomic operations on a volatile field and so save the space which is needed to hold the object that you would create if you would use something like `AtomicLong`. This works as Atomic*FieldUpdater is used as a static field and so not need to create a new Object everytime.
+This is exactly where the not widely known `Atomic*FieldUpdater` classes come in. They allow you to do atomic operations on volatile fields and as a result prevent you from unecessary object allocations (for example of an `AtomicLong`).
 
 > Neat, isn't it ?
 
 So to replace the above usage of `AtomicLong` your code would look like:
 
-        private static final AtomicLongFieldUpdater<TheDeclaringClass> ATOMIC_UPDATER =
-            AtomicLongFieldUpdater.newUpdater(TheDeclaringClass.class, "atomic");
+    private static final AtomicLongFieldUpdater<TheDeclaringClass> ATOMIC_UPDATER =
+        AtomicLongFieldUpdater.newUpdater(TheDeclaringClass.class, "atomic");
 
     private volatile long atomic;
 
@@ -42,20 +42,18 @@ So to replace the above usage of `AtomicLong` your code would look like:
         ...
     }
 
-This works with some reflection magic which is used when you create the `AtomicLongFieldUpdater` instance. The passed in fieldname (in this case atomic) will be used to lookup the declared volatile field. Thus you must be sure it matches. 
-And this is one of the weak things when using Atomic*FieldUpdater as there is no way for the compiler to detect that those match. So you need to keep an eye on this by yourself. 
+This works with some reflection magic which is used when you create the `AtomicLongFieldUpdater` instance. The passed in fieldname (in this case "atomic") will be used to lookup the declared volatile field. Thus you must be sure it matches exactly. As you can imagine, this is one of the weak things when using the Atomic*FieldUpdater as there is no way for the compiler to detect that those match. So you need to keep an eye on this by yourself. 
 
-You may ask you self about if it worth it at all? As always it depends... If you only create a few thousands instances of the class that use Atomic* it may not worth it at all. But there may be situations where you need to create millions of them and keep the alive for a long time. In those situations it can have a big impact.
+You may ask yourself if this pays off at all. As always it depends... If you only create a few thousands instances of the class that use Atomic* it may not worth the additional effort. But there may be situations where you need to create millions of them and keep the alive for a long time. In those situations it can have a big impact.
 
-In the case of the [Netty Project](http://netty.io) we used `AtomicLong` and `AtomicReference` in our `Channel`, `DefaultChannelPipeline` and `DefaultChannelHandlerContext` classes. A new instance of `Channel` and `ChannelPipele` is created for each new Connection that is accepted or established and it is not unusal to have 10  (or more ) `DefaultChannelHandlerContext` objects per `DefaultChannelPipeline`. For Non-Blocking Servers it is not unusal to handle a very big amout of concurrent connections, which in our case was creating many instances of the mentioned classes. Those stayed alive for a long time as connections may be long-living. One of our users was testing 1M+ concurrent connections at this time and saw a big amount of heap space taken up because of the `AtomicLongi` and `AtomicReference` instances we were using. By replacing those with AtomicField*Updater we was able to save about 500M of memory which in combination with other changes made a difference of 3 GB less memory usage.
+In the case of the [Netty Project](http://netty.io) we used `AtomicLong` and `AtomicReference` in our `Channel`, `DefaultChannelPipeline` and `DefaultChannelHandlerContext` classes. A new instance of `Channel` and `ChannelPipeline` is created for each new connection that is accepted or established and it is not unusal to have 10  (or more) `DefaultChannelHandlerContext` objects per `DefaultChannelPipeline`. For non-blocking servers it is not unusual to handle a very big amout of concurrent connections, which in our case was creating many instances of the mentioned classes. Those stayed alive for a long time as connections may be long-lived. One of our users was testing 1M+ concurrent connections at this time and saw a big amount of heap space taken up because of the `AtomicLong` and `AtomicReference` instances we were using. By replacing those with AtomicField*Updater we were able to save about 500 megabytes of memory which in combination with other changes resulted in 3 gigabytes less memory usage.
 
-For more details on the specific issue please have a look at those two issues: [#920](https://github.com/netty/netty/issues/920) and [#995](https://github.com/netty/netty/issues/995)
+For more details on the specific enhancements please have a look at those two issues: [#920](https://github.com/netty/netty/issues/920) and [#995](https://github.com/netty/netty/issues/995)
 
-On thing to note is that there is no `AtomicBooleanFieldUpdater` which you could use to replace `AtomicBoolean`. This is not a problem, just use `AtomicIntegerFieldUpdater` with value 0 as false and 1 as true. Problem solved ;)
+On thing to note is that there is no `AtomicBooleanFieldUpdater` which you could use to replace a `AtomicBoolean`. This is not a problem, just use `AtomicIntegerFieldUpdater` with value 0 as false and 1 as true. Problem solved ;)
 
 ## Gimme some numbers
-So after all of this it would be nice to actual proof it. So let us do some simple test here. We create a Class which will contain 10 AtomicLong  and 10 AtomicReference instances and instance the class itself 1M times. This kind of mimic the pattern we saw within [Netty](http://netty.io).
-
+Now with some theory behind us, let's proof our claim. So let's do some simple test here: we create a class which will contain 10 `AtomicLong` and 10 `AtomicReference` instances and instantiate the class itself 1M times. This resembles the pattern we saw with [Netty](http://netty.io).
 
 Let us first have a look at the actual code:
 
@@ -84,24 +82,25 @@ Let us first have a look at the actual code:
 
         public static void main(String[] args) throws Exception {
             List<AtomicExample> list = new LinkedList<AtomicExample>();
-            for (int i = 0; i < 1000000; i++) {
+            int instances = 1000000;
+            for (int i = 0; i < instances; i++) {
                 list.add(new AtomicExample());
             }
-            System.out.println("Created instances 1000000");
+            System.out.println("Created " + instances + "instances");
 
-            Thread.sleep(60 * 1000 * 60);
+            Thread.sleep(TimeUnit.HOURS.toMillis(1));
         }
     }
 
-This code mimics the creation of 1M instances which each has 10 `AtomicLong` instances and 10 `AtomicReference` instances. You may thing this is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but which are still related. Like all of them are created for each new connection.
+You may think this is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but which are still related. Like all of them are created for each new connection.
 
-Now let us have a look at how much memory is retained by them. For this I used Yourkit but any other tool which can inspect heap-dumps should just work fine.
+Now let us have a look at how much memory is retained by them. For this I used [YourKit](http://www.yourkit.com/) but any other tool which can inspect heap-dumps should just works fine.
 
 ![AtomicExample](/blog/images/AtomicExample.png "Memory usage of AtomicExample")
 
-As you can see AtomicLong and AtomicReference took about about 400MB of memory where AtomicExample itself takes up 96MB. This makes up a a sum of ca. 500MB memory that is used by each AtomicExample instance that is created.
+As you can see AtomicLong and AtomicReference instances together use about 400MB of memory where AtomicExample itself takes up 96MB.
 
-Now let us do a second version of this class but replace `AtomicLong` with `volatile long` and `AtomicLongFieldUpdater`. Beside this we also replace `AtomicReference` with `volatile String` and `AtomicReferenceFieldUpdater`.
+Now let's do a second version of this class but replace `AtomicLong` with `volatile long` and `AtomicLongFieldUpdater`. Beside this we also replace `AtomicReference` with `volatile String` and `AtomicReferenceFieldUpdater`.
 
 The code looks like this now:
 
@@ -171,17 +170,17 @@ The code looks like this now:
 
         public static void main(String[] args) throws Exception {
             List<AtomicFieldExample> list = new LinkedList<AtomicFieldExample>();
-            for (int i = 0; i < 1000000; i++) {
+            int instances = 1000000;
+            for (int i = 0; i < instances; i++) {
                 list.add(new AtomicFieldExample());
             }
-            System.out.println("Created instances 1000000");
+            System.out.println("Created " + instances + "instances");
 
-            Thread.sleep(60 * 1000 * 60);
+            Thread.sleep(TimeUnit.HOURS.toMillis(1));
         }
     }
 
-As you see the code becomes a bit more bloaded, hopefully it pays out. Again let us take a look at the memory usage as before.
-
+As you see the code becomes a bit more bloated, but hopefully it pays off. Again, let's take a look at the memory usage as before.
 
 ![AtomicFieldExample](/blog/images/AtomicFieldExample.png "Memory usage of AtomicFieldExample")
 
