@@ -134,9 +134,12 @@
             
             <p>So it only pays off because we save the extra memory overhead of AtomicLong and AtomicReference itself. So to put it straight: <strong>Every Object has a fixed overhead</strong>.</p>
             
-            <p>Beside the memory savings there are some other nice effect here, we did not mention before: 
-             * Because we save Objects the Garbage Collector has less overhead to care about, as it needs to keep track of every Object.
-             * We save the tax of the built in monitor which comes as part of each Object</p>
+            <p>Beside the memory savings there are some other nice effect here, we did not mention before: </p>
+            
+            <ul>
+              <li>Because we save Objects the Garbage Collector has less overhead to care about, as it needs to keep track of every Object.</li>
+              <li>We save the tax of the built in monitor which comes as part of each Object</li>
+            </ul>
             
             <h2 id="summary">Summary</h2>
             
