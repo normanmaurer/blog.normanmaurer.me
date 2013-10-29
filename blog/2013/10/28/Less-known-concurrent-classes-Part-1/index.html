@@ -44,7 +44,7 @@
           </header>
           <div class="content">
             
-            <p>Today I want to talk about one of the less known utility classes when it comes to atomic operations in Java. Everyone who ever has done some real work with the java.util.concurrent package should be aware of the Atomic* classes in there which helps you to do atomic operations on references, Longs, Integers, Booleans and more.</p>
+            <p>Today I want to talk about one of the lesser known utility classes when it comes to atomic operations in Java. Everyone who ever has done some real work with the <code>java.util.concurrent</code> package should be aware of the Atomic* classes in there which helps you to do atomic operations on references, Longs, Integers, Booleans and more.</p>
             
             <p>The classes in question are all located in the <a href="http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/atomic/package-summary.html">java.util.concurrent.atomic package</a>. 
             Like:</p>
@@ -62,7 +62,7 @@
             <pre><code>AtomicLong atomic = new AtomicLong(0);&#x000A;atomic.compareAndSet(0, 1);&#x000A;...&#x000A;...&#x000A;</code></pre>
             
             <p>So what is the big deal with them? It's about memory usage … 
-            Wouldn't it be nice to be able to just use a <code>volatile long</code> and so use less heap space? </p>
+            Wouldn't it be nice to be able to just use a <code>volatile long</code>, save a object allocation and as a result use less memory? </p>
             
             <blockquote>
               <p>HELL YEAH!</p>
@@ -85,18 +85,18 @@
             
             <p>In the case of the <a href="http://netty.io">Netty Project</a> we used <code>AtomicLong</code> and <code>AtomicReference</code> in our <code>Channel</code>, <code>DefaultChannelPipeline</code> and <code>DefaultChannelHandlerContext</code> classes. A new instance of <code>Channel</code> and <code>ChannelPipeline</code> is created for each new connection that is accepted or established and it is not unusal to have 10  (or more ) <code>DefaultChannelHandlerContext</code> objects per <code>DefaultChannelPipeline</code>. For Non-Blocking Servers it is not unusal to handle a large amout of concurrent connections, which in our case was creating many instances of the mentioned classes. Those stayed alive for a long time as connections may be long-living. One of our users was testing 1M+ concurrent connections and saw a large amount of the heap space taken up because of the <code>AtomicLong</code> and <code>AtomicReference</code> instances we were using. By replacing those with AtomicField*Updater we were able to save about 500 MB of memory which, in combination with other changes, reduced the memory footprint by 3 GB.</p>
             
-            <p>For more details on the specific issue please have a look at those two issues: <a href="https://github.com/netty/netty/issues/920">#920</a> and <a href="https://github.com/netty/netty/issues/995">#995</a></p>
+            <p>For more details on the specific enhancements please have a look at those two issues: <a href="https://github.com/netty/netty/issues/920">#920</a> and <a href="https://github.com/netty/netty/issues/995">#995</a></p>
             
-            <p>On thing to note is that there is no <code>AtomicBooleanFieldUpdater</code> that you could use to replace <code>AtomicBoolean</code>. This is not a problem, just use <code>AtomicIntegerFieldUpdater</code> with value 0 as false and 1 as true. Problem solved ;)</p>
+            <p>On thing to note is that there is no <code>AtomicBooleanFieldUpdater</code> that you could use to replace a <code>AtomicBoolean</code>. This is not a problem, just use <code>AtomicIntegerFieldUpdater</code> with value 0 as false and 1 as true. Problem solved ;)</p>
             
             <h2 id="gimme-some-numbers">Gimme some numbers</h2>
-            <p>So after all of this it would be nice to actually prove it. So let us do a simple test here. We create a Class which will contain 10 <code>AtomicLong</code> and 10 i<code>AtomicReference</code> instances and instantiate itself 1M times. This kind of mimic the pattern we saw within <a href="http://netty.io">Netty</a>.</p>
+            <p>Now with some theory behind us, let's proof our claim. Let us do a simple test here: we create a Class which will contain 10 <code>AtomicLong</code> and 10 <code>AtomicReference</code> instances and instantiate itself 1M times. This resembles the pattern we saw within <a href="http://netty.io">Netty</a>.</p>
             
             <p>Let us first have a look at the actual code:</p>
             
             <pre><code>public class AtomicExample {&#x000A;&#x000A;    final AtomicLong atomic1 = new AtomicLong(0);&#x000A;    final AtomicLong atomic2 = new AtomicLong(0);&#x000A;    final AtomicLong atomic3 = new AtomicLong(0);&#x000A;    final AtomicLong atomic4 = new AtomicLong(0);&#x000A;    final AtomicLong atomic5 = new AtomicLong(0);&#x000A;    final AtomicLong atomic6 = new AtomicLong(0);&#x000A;    final AtomicLong atomic7 = new AtomicLong(0);&#x000A;    final AtomicLong atomic8 = new AtomicLong(0);&#x000A;    final AtomicLong atomic9 = new AtomicLong(0);&#x000A;    final AtomicLong atomic10 = new AtomicLong(0);&#x000A;    final AtomicReference atomic11 = new AtomicReference&lt;String&gt;("String");&#x000A;    final AtomicReference atomic12 = new AtomicReference&lt;String&gt;("String");&#x000A;    final AtomicReference atomic13 = new AtomicReference&lt;String&gt;("String");&#x000A;    final AtomicReference atomic14 = new AtomicReference&lt;String&gt;("String");&#x000A;    final AtomicReference atomic15 = new AtomicReference&lt;String&gt;("String");&#x000A;    final AtomicReference atomic16 = new AtomicReference&lt;String&gt;("String");&#x000A;    final AtomicReference atomic17 = new AtomicReference&lt;String&gt;("String");&#x000A;    final AtomicReference atomic18 = new AtomicReference&lt;String&gt;("String");&#x000A;    final AtomicReference atomic19 = new AtomicReference&lt;String&gt;("String");&#x000A;    final AtomicReference atomic20 = new AtomicReference&lt;String&gt;("String");&#x000A;&#x000A;    public static void main(String[] args) throws Exception {&#x000A;        List&lt;AtomicExample&gt; list = new LinkedList&lt;AtomicExample&gt;();&#x000A;        for (int i = 0; i &lt; 1000000; i++) {&#x000A;            list.add(new AtomicExample());&#x000A;        }&#x000A;        System.out.println("Created instances 1000000");&#x000A;&#x000A;        System.in.read();&#x000A;    }&#x000A;}&#x000A;</code></pre>
             
-            <p>This code mimics the creation of 1M instances which each has 10 <code>AtomicLong</code> instances and 10 <code>AtomicReference</code> instances. You would think this is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but that is still related. Like all of them are created for each new connection.</p>
+            <p>You may think this is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but which are still related. Like all of them are created for each new connection.</p>
             
             <p>Now let us have a look at how much memory is retained by them. For this I used YourKit but any other tool which can inspect heap-dumps should just work fine.</p>
             
@@ -104,7 +104,7 @@
             
             <p>As you can see <code>AtomicLong</code> and <code>AtomicReference</code> instances took about about 400 MB of memory where <code>AtomicExample</code> itself takes up 96MB. This makes up a a sum of ca. 500 MB memory that is used by each AtomicExample instance that is created.</p>
             
-            <p>Now let us do a second version of this class but replace <code>AtomicLong</code> with <code>volatile long</code> and <code>AtomicLongFieldUpdater</code>. Beside this we also replace <code>AtomicReference</code> with <code>volatile String</code> and <code>AtomicReferenceFieldUpdater</code>.</p>
+            <p>Now let's do a second version of this class but replace <code>AtomicLong</code> with <code>volatile long</code> and <code>AtomicLongFieldUpdater</code>. Beside this we also replace <code>AtomicReference</code> with <code>volatile String</code> and <code>AtomicReferenceFieldUpdater</code>.</p>
             
             <p>The code looks like this now:</p>
             
