@@ -23,4 +23,5 @@ Profiles:
 
  * <img src="/images/maurer_cover150.jpg" alt="My Netty Book" style="width: 24px;"/> [My Netty Book](http://manning.com/maurer/) , puplished by [Manning](http://manning.com).
 
+ * <img src="/images/speakerdeck.png" alt="My Presentations" style="width: 24px;"/> [My Speakerdeck Profile hosting presentations](https://speakerdeck.com/normanmaurer).
  * ...
