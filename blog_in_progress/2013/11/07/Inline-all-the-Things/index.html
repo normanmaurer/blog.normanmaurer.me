@@ -57,7 +57,7 @@
             <p>Inlining is a technique that will basically just "inline" one method in another and so get rid of a method invocation. The JIT automatically detects "hot" methods and try to inline them for you. A method is considered "hot" if it was executed more the X times, where X is a threshold that can be configured using a JVM flag when start up java (10000 is the default). This is needed as inlining all methods would do more harm then anything else, because of the enormous produced byte-code. Beside this the JIT may "revert" previous inlined code when an optimization turns out to be wrong at a later state. Remember the JIT stands for Just in Time and so optimize (which includes inlining but also other things) while execute your code.</p>
             
             <p>But even if the JVM consider a method to be "hot" it may not inline it. But why? One of the most likely reasons is that it is just to big to get inlined.
-            How big a hot method can be and still be inlined is defined via the <code>-XX:FreqInlineSize=</code> and is 325 bytecode instructions as default. Don't change this number if you are not 100% sure you understand what you are doing and the impact of it!</p>
+            How big a hot method can be and still be inlined is defined via the <code>-XX:FreqInlineSize=</code> and is 325 bytecode instructions as default on Linux/OSX. The default value is platform dependent. Don't change this number if you are not 100% sure you understand what you are doing and the impact of it!</p>
             
             <p>So this gives us the first advice:</p>
             
