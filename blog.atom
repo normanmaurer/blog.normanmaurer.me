@@ -2,13 +2,13 @@
 <feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom">
   <id>http://normanmaurer.me/</id>
   <title>Normans rant's and more</title>
-  <updated>2013-11-03T20:31:33+01:00</updated>
+  <updated>2013-11-03T20:39:38+01:00</updated>
   <link href="http://normanmaurer.me/blog.atom" rel="self" type="application/atom+xml" />
   <link href="http://normanmaurer.me/" rel="alternate" type="text/html" />
   <entry>
     <id>http://normanmaurer.me/blog_in_progress/2013/11/07/Inline-all-the-Things/</id>
     <title>Inline all the Things</title>
-    <updated>2013-11-03T20:31:33+01:00</updated>
+    <updated>2013-11-03T20:39:38+01:00</updated>
     <published>2013-11-07T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog_in_progress/2013/11/07/Inline-all-the-Things/" rel="alternate" type="text/html" />
     <author>
@@ -31,7 +31,7 @@
       &lt;p&gt;Inlining is a technique that will basically just &quot;inline&quot; one method in another and so get rid of a method invocation. The JIT automatically detects &quot;hot&quot; methods and try to inline them for you. A method is considered &quot;hot&quot; if it was executed more the X times, where X is a threshold that can be configured using a JVM flag when start up java (10000 is the default). This is needed as inlining all methods would do more harm then anything else, because of the enormous produced byte-code. Beside this the JIT may &quot;revert&quot; previous inlined code when an optimization turns out to be wrong at a later state. Remember the JIT stands for Just in Time and so optimize (which includes inlining but also other things) while execute your code.&lt;/p&gt;
       
       &lt;p&gt;But even if the JVM consider a method to be &quot;hot&quot; it may not inline it. But why? One of the most likely reasons is that it is just to big to get inlined.
-      How big a hot method can be and still be inlined is defined via the &lt;code&gt;-XX:FreqInlineSize=&lt;/code&gt; and is 325 bytecode instructions as default on Linux/OSX. The default value is platform dependent. Don't change this number if you are not 100% sure you understand what you are doing and the impact of it!&lt;/p&gt;
+      How big a hot method can be and still be inlined is defined via the &lt;code&gt;-XX:FreqInlineSize=&lt;/code&gt; and is 325 bytecode instructions as default on Linux 64 Bit. The default value is platform dependent. Don't change this number if you are not 100% sure you understand what you are doing and the impact of it!&lt;/p&gt;
       
       &lt;p&gt;So this gives us the first advice:&lt;/p&gt;
       
