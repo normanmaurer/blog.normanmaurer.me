@@ -2,223 +2,280 @@
 <feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom">
   <id>http://normanmaurer.me/</id>
   <title>Normans rant's and more</title>
-  <updated>2013-11-03T20:39:38+01:00</updated>
+  <updated>2013-11-03T20:40:20+01:00</updated>
   <link href="http://normanmaurer.me/blog.atom" rel="self" type="application/atom+xml" />
   <link href="http://normanmaurer.me/" rel="alternate" type="text/html" />
   <entry>
-    <id>http://normanmaurer.me/blog_in_progress/2013/11/07/Inline-all-the-Things/</id>
-    <title>Inline all the Things</title>
-    <updated>2013-11-03T20:39:38+01:00</updated>
-    <published>2013-11-07T00:00:00+00:00</published>
-    <link href="http://normanmaurer.me/blog_in_progress/2013/11/07/Inline-all-the-Things/" rel="alternate" type="text/html" />
+    <id>http://normanmaurer.me/blog/2013/10/28/Lesser-known-concurrent-classes-Part-1/</id>
+    <title>Lesser known concurrent classes - Atomic*FieldUpdater</title>
+    <updated>2013-11-03T20:40:20+01:00</updated>
+    <published>2013-10-28T00:00:00+00:00</published>
+    <link href="http://normanmaurer.me/blog/2013/10/28/Lesser-known-concurrent-classes-Part-1/" rel="alternate" type="text/html" />
     <author>
       <name>normanmaurer</name>
     </author>
     <summary>
       
-      If you are familiar with the JVM or JIT you may know that there is a little magic happen that is called inlining. Inlining is often mention as one of the most powerful things the JIT can do to optimize your code while it is executed it at the same time.
+      Today I want to talk about one of the lesser known utility classes when it comes to atomic operations in Java. Everyone who ever has done some real work with the java.util.concurrent package should be aware of the Atomic* classes in there which helps you to do atomic operations on references, Longs, Integers, Booleans and more.
       
-      But what is inlining and why the heck does it make things faster?
+      The classes in question are all located in the java.util.concurrent.atomic package. 
+      Like:
       
-      Inlining is a technique that will basically just "inline" one method in another and so get rid of a method invocation. The JIT automatically detects "hot" methods and try to inline them for you. A method is considered...
+      
+        AtomicBoolean
+        AtomicInteger
+        AtomicReference
+        AtomicLong 
+        ….
+      
+      
+      Using those is as easy as doing something like:
+      
+      AtomicLong atomic = new AtomicLong(0);
+      atomic.compareAndSet(0, 1);
+      ...
+      ...
+      
+      
+      So what is the big deal with them? It's about...
     </summary>
     <content type="html">
       
-      &lt;p&gt;If you are familiar with the JVM or JIT you may know that there is a little magic happen that is called inlining. Inlining is often mention as one of the most powerful things the JIT can do to optimize your code while it is executed it at the same time.&lt;/p&gt;
+      &lt;p&gt;Today I want to talk about one of the lesser known utility classes when it comes to atomic operations in Java. Everyone who ever has done some real work with the &lt;code&gt;java.util.concurrent&lt;/code&gt; package should be aware of the Atomic* classes in there which helps you to do atomic operations on references, Longs, Integers, Booleans and more.&lt;/p&gt;
       
-      &lt;h4 id=&quot;but-what-is-inlining-and-why-the-heck-does-it-make-things-faster&quot;&gt;But what is inlining and why the heck does it make things faster?&lt;/h4&gt;
-      
-      &lt;p&gt;Inlining is a technique that will basically just &quot;inline&quot; one method in another and so get rid of a method invocation. The JIT automatically detects &quot;hot&quot; methods and try to inline them for you. A method is considered &quot;hot&quot; if it was executed more the X times, where X is a threshold that can be configured using a JVM flag when start up java (10000 is the default). This is needed as inlining all methods would do more harm then anything else, because of the enormous produced byte-code. Beside this the JIT may &quot;revert&quot; previous inlined code when an optimization turns out to be wrong at a later state. Remember the JIT stands for Just in Time and so optimize (which includes inlining but also other things) while execute your code.&lt;/p&gt;
-      
-      &lt;p&gt;But even if the JVM consider a method to be &quot;hot&quot; it may not inline it. But why? One of the most likely reasons is that it is just to big to get inlined.
-      How big a hot method can be and still be inlined is defined via the &lt;code&gt;-XX:FreqInlineSize=&lt;/code&gt; and is 325 bytecode instructions as default on Linux 64 Bit. The default value is platform dependent. Don't change this number if you are not 100% sure you understand what you are doing and the impact of it!&lt;/p&gt;
-      
-      &lt;p&gt;So this gives us the first advice:&lt;/p&gt;
-      
-      &lt;p&gt;&lt;strong&gt;The JVM loves small methods&lt;/strong&gt;&lt;/p&gt;
-      
-      &lt;p&gt;So if your method is hot but is to big you should think about how you can make it smaller.&lt;/p&gt;
-      
-      &lt;p&gt;Now you may wonder yourself how to find out about what is inlined and what not. Fortunally it's quite easy to gather this informations. All you need is some extra JVM flags during startup. Those are:&lt;/p&gt;
+      &lt;p&gt;The classes in question are all located in the &lt;a href=&quot;http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/atomic/package-summary.html&quot;&gt;java.util.concurrent.atomic package&lt;/a&gt;. 
+      Like:&lt;/p&gt;
       
       &lt;ul&gt;
-        &lt;li&gt;-XX:+PrintCompilation: Prints out when JIT compilation happens&lt;/li&gt;
-        &lt;li&gt;-XX:+UnlockDiagnosticVMOptions: Is needed to use flags like -XX:+PrintInlining&lt;/li&gt;
-        &lt;li&gt;-XX:+PrintInlining: Prints what methods were inlined&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;AtomicBoolean&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;AtomicInteger&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;AtomicReference&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;
+      &lt;code&gt;AtomicLong&lt;/code&gt; &lt;/li&gt;
+        &lt;li&gt;….&lt;/li&gt;
       &lt;/ul&gt;
       
-      &lt;p&gt;That's it. With those flags you will get a lot of informations logged to STDOUT, so you should store them in a log file to better analyze later.
-      So with this background let us focus on how you can make the best use out of it.&lt;/p&gt;
+      &lt;p&gt;Using those is as easy as doing something like:&lt;/p&gt;
       
-      &lt;h4 id=&quot;optimize-performance-by-allow-for-inline---a-real-story&quot;&gt;Optimize performance by allow for inline - A real story&lt;/h4&gt;
-      
-      &lt;p&gt;As most of you may know I'm working on the &lt;a href=&quot;http://netty.io&quot;&gt;Netty Project&lt;/a&gt; as part of my day job. Netty tries to make development of asynchronous network applications easy while still provide an excellent performance. So I often end up running benchmarks as part of my work, which was exactly what I did when came across the &quot;problem&quot;. &lt;/p&gt;
-      
-      &lt;p&gt;While doing the benchmark I started to wonder how well the JIT kicks in when Netty is used as simple HTTP Server. So I fired up the &lt;a href=&quot;https://github.com/netty/netty/tree/master/example/src/main/java/io/netty/example/http/helloworld&quot;&gt;Hello World HTTP Server example&lt;/a&gt; with the previous mention JVM args like:&lt;/p&gt;
-      
-      &lt;pre&gt;&lt;code&gt;java -XX:+PrintCompilation -XX:+UnlockDiagnosticVMOptions -XX:+PrintInlining .... &amp;gt; inline.log
+      &lt;pre&gt;&lt;code&gt;AtomicLong atomic = new AtomicLong(0);
+      atomic.compareAndSet(0, 1);
+      ...
+      ...
       &lt;/code&gt;&lt;/pre&gt;
       
-      &lt;p&gt;Now it was time to generate some workload on the HTTP Server so it does some real-world. For this I used one of my prefered benchmarking tools when it comes to HTTP, &lt;a href=&quot;https://github.com/netty/wrk/wrk/&quot;&gt;wrk&lt;/a&gt;.&lt;/p&gt;
+      &lt;p&gt;So what is the big deal with them? It's about memory usage … 
+      Wouldn't it be nice to be able to just use a &lt;code&gt;volatile long&lt;/code&gt;, save a object allocation and as a result use less memory? &lt;/p&gt;
       
-      &lt;pre&gt;&lt;code&gt;wrk -H 'Host: localhost' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Connection: keep-alive' -d 600 -c 1024 -t 8 http://127.0.0.1:8080/plaintext
-      &lt;/code&gt;&lt;/pre&gt;
+      &lt;blockquote&gt;
+        &lt;p&gt;HELL YEAH!&lt;/p&gt;
+      &lt;/blockquote&gt;
       
-      &lt;p&gt;This basically runs the test for 10 minutes with 1024 concurrent clients. Sending a simple GET request and wait for a response. Nothing fancy here, so moving on ;)&lt;/p&gt;
+      &lt;p&gt;This is exactly where the not widely known Atomic*FieldUpdater comes in. Those allow you to do &quot;atomic&quot; operations on a volatile field and so save the space which is needed to hold the object that you would create if you would use something like &lt;code&gt;AtomicLong&lt;/code&gt;. This works as Atomic*FieldUpdater is used as a static field and so not need to create a new Object everytime.&lt;/p&gt;
       
-      &lt;p&gt;After this completed I was about to review the inline.log file. Like I said before the output is really noise and looks like:&lt;/p&gt;
+      &lt;blockquote&gt;
+        &lt;p&gt;Neat, isn't it ?&lt;/p&gt;
+      &lt;/blockquote&gt;
       
-      &lt;pre&gt;&lt;code&gt; 66527  370             io.netty.channel.nio.NioEventLoop::processSelectedKeysOptimized (80 bytes)
-                              @ 14   java.nio.channels.SelectionKey::attachment (5 bytes)   inline (hot)
-                 !            @ 33   io.netty.channel.nio.NioEventLoop::processSelectedKey (120 bytes)   inline (hot)
-                                @ 1   io.netty.channel.nio.AbstractNioChannel::unsafe (8 bytes)   inline (hot)
-                                  @ 1   io.netty.channel.AbstractChannel::unsafe (5 bytes)   inline (hot)
-                                @ 6   java.nio.channels.spi.AbstractSelectionKey::isValid (5 bytes)   inline (hot)
-                                @ 26   sun.nio.ch.SelectionKeyImpl::readyOps (9 bytes)   inline (hot)
-                                  @ 1   sun.nio.ch.SelectionKeyImpl::ensureValid (16 bytes)   inline (hot)
-                                    @ 1   java.nio.channels.spi.AbstractSelectionKey::isValid (5 bytes)   inline (hot)
-                 !              @ 42   io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe::read (191 bytes)   inline (hot)
-                 !              @ 42   io.netty.channel.nio.AbstractNioMessageChannel$NioMessageUnsafe::read (327 bytes)   hot method too big
-                                  @ 4   io.netty.channel.socket.nio.NioSocketChannel::config (5 bytes)   inline (hot)
-                                    @ 1   io.netty.channel.socket.nio.NioSocketChannel::config (5 bytes)   inline (hot)
-                                  @ 12   io.netty.channel.AbstractChannel::pipeline (5 bytes)   inline (hot)
-                                  @ 17   io.netty.channel.DefaultChannelConfig::getAllocator (5 bytes)   inline (hot)
-                                  @ 24   io.netty.channel.DefaultChannelConfig::getMaxMessagesPerRead (5 bytes)   inline (hot)
-                                  @ 44   io.netty.channel.DefaultChannelConfig::getRecvByteBufAllocator (5 bytes)   inline (hot)
-                                  @ 49   io.netty.channel.AdaptiveRecvByteBufAllocator::newHandle (20 bytes)   executed &amp;lt; MinInlining Threshold times
-      &lt;/code&gt;&lt;/pre&gt;
+      &lt;p&gt;So to replace the above usage of &lt;code&gt;AtomicLong&lt;/code&gt; your code would look like:&lt;/p&gt;
       
-      &lt;p&gt;The most interesting things here are method which are marked as &quot;hot method too big&quot;. Those are the methods which the JIT consider to be hot (so executed a lot) but are to big to consider them for inlining at all. If you want to archive max speed you don't want to see this ;) Or at least you want to try to make them shorter.&lt;/p&gt;
+      &lt;pre&gt;&lt;code&gt;private static final AtomicLongFieldUpdater&amp;lt;TheDeclaringClass&amp;gt; ATOMIC_UPDATER =
+              AtomicLongFieldUpdater.newUpdater(TheDeclaringClass.class, &quot;atomic&quot;);
       
-      &lt;p&gt;But how to shorten them without loosing functionality? The solution is to move &quot;less common patterns&quot; out of the method into another method. This way the method itself becomes smaller while still be able to cover everything by the cost of dispatch to another method. This is exactly what I did for the here is what it looks like for the io.netty.channel.nio.AbstractNioMessageChannel$NioMessageUnsafe::read method. &lt;/p&gt;
+      private volatile long atomic;
       
-      &lt;p&gt;Before optimize it it looked like:&lt;/p&gt;
-      
-      &lt;pre&gt;&lt;code&gt;private final class NioMessageUnsafe extends AbstractNioUnsafe {
-      	...
-      
-          @Override
-          public void read() {
-              assert eventLoop().inEventLoop();
-              final SelectionKey key = selectionKey();
-              if (!config().isAutoRead()) {
-                  int interestOps = key.interestOps();
-                  if ((interestOps &amp;amp; readInterestOp) != 0) {
-                      // only remove readInterestOp if needed
-                      key.interestOps(interestOps &amp;amp; ~readInterestOp);
-                  }
-              }
-      
-              final ChannelConfig config = config();
-              final int maxMessagesPerRead = config.getMaxMessagesPerRead();
-              final boolean autoRead = config.isAutoRead();
-              final ChannelPipeline pipeline = pipeline();
-              boolean closed = false;
-              Throwable exception = null;
-              try {
-                  for (;;) {
-                      int localRead = doReadMessages(readBuf);
-                      if (localRead == 0) {
-                          break;
-                      }
-                      if (localRead &amp;lt; 0) {
-                          closed = true;
-                          break;
-                      }
-      
-                      if (readBuf.size() &amp;gt;= maxMessagesPerRead | !autoRead) {
-                          break;
-                      }
-                  }
-              } catch (Throwable t) {
-                  exception = t;
-              }
-      
-              int size = readBuf.size();
-              for (int i = 0; i &amp;lt; size; i ++) {
-                  pipeline.fireChannelRead(readBuf.get(i));
-              }
-              readBuf.clear();
-              pipeline.fireChannelReadComplete();
-      
-              if (exception != null) {
-                  if (exception instanceof IOException) {
-                      // ServerChannel should not be closed even on IOException because it can often continue
-                      // accepting incoming connections. (e.g. too many open files)
-                      closed = !(AbstractNioMessageChannel.this instanceof ServerChannel);
-                  }
-      
-                  pipeline.fireExceptionCaught(exception);
-              }
-      
-              if (closed) {
-                  if (isOpen()) {
-                      close(voidPromise());
-                  }
-              }
-          }
+      public void yourMethod() {
+          ATOMIC_UPDATER.compareAndSet(this, 0, 1);
           ...
+          ...     }
+      &lt;/code&gt;&lt;/pre&gt;
+      
+      &lt;p&gt;This works with some reflection magic which is used when you create the &lt;code&gt;AtomicLongFieldUpdater&lt;/code&gt; instance. The field names passed in as argument (in this case atomic) will be used to lookup the declared volatile field. Thus you must be sure it matches. 
+      And this is one of the weak things when using Atomic*FieldUpdater as there is no way for the compiler to detect that those match. So you need to keep an eye on this by yourself. &lt;/p&gt;
+      
+      &lt;p&gt;You may ask you self about if it worth it at all? As always it depends… If you only create a few thousands instances of the class that use Atomic* it may not worth it at all. But there may be situations where you need to create millions of them and keep the alive for a long time. In those situations it can have a big impact.&lt;/p&gt;
+      
+      &lt;p&gt;In the case of the &lt;a href=&quot;http://netty.io&quot;&gt;Netty Project&lt;/a&gt; we used &lt;code&gt;AtomicLong&lt;/code&gt; and &lt;code&gt;AtomicReference&lt;/code&gt; in our &lt;code&gt;Channel&lt;/code&gt;, &lt;code&gt;DefaultChannelPipeline&lt;/code&gt; and &lt;code&gt;DefaultChannelHandlerContext&lt;/code&gt; classes. A new instance of &lt;code&gt;Channel&lt;/code&gt; and &lt;code&gt;ChannelPipeline&lt;/code&gt; is created for each new connection that is accepted or established and it is not unusal to have 10  (or more ) &lt;code&gt;DefaultChannelHandlerContext&lt;/code&gt; objects per &lt;code&gt;DefaultChannelPipeline&lt;/code&gt;. For Non-Blocking Servers it is not unusal to handle a large amout of concurrent connections, which in our case was creating many instances of the mentioned classes. Those stayed alive for a long time as connections may be long-living. One of our users was testing 1M+ concurrent connections and saw a large amount of the heap space taken up because of the &lt;code&gt;AtomicLong&lt;/code&gt; and &lt;code&gt;AtomicReference&lt;/code&gt; instances we were using. By replacing those with AtomicField*Updater we were able to save about 500 MB of memory which, in combination with other changes, reduced the memory footprint by 3 GB.&lt;/p&gt;
+      
+      &lt;p&gt;For more details on the specific enhancements please have a look at those two issues: &lt;a href=&quot;https://github.com/netty/netty/issues/920&quot;&gt;#920&lt;/a&gt; and &lt;a href=&quot;https://github.com/netty/netty/issues/995&quot;&gt;#995&lt;/a&gt;&lt;/p&gt;
+      
+      &lt;p&gt;On thing to note is that there is no &lt;code&gt;AtomicBooleanFieldUpdater&lt;/code&gt; that you could use to replace a &lt;code&gt;AtomicBoolean&lt;/code&gt;. This is not a problem, just use &lt;code&gt;AtomicIntegerFieldUpdater&lt;/code&gt; with value 0 as false and 1 as true. Problem solved ;)&lt;/p&gt;
+      
+      &lt;h2 id=&quot;gimme-some-numbers&quot;&gt;Gimme some numbers&lt;/h2&gt;
+      &lt;p&gt;Now with some theory behind us, let's proof our claim. Let us do a simple test here: we create a Class which will contain 10 &lt;code&gt;AtomicLong&lt;/code&gt; and 10 &lt;code&gt;AtomicReference&lt;/code&gt; instances and instantiate itself 1M times. This resembles the pattern we saw within &lt;a href=&quot;http://netty.io&quot;&gt;Netty&lt;/a&gt;.&lt;/p&gt;
+      
+      &lt;p&gt;Let us first have a look at the actual code:&lt;/p&gt;
+      
+      &lt;pre&gt;&lt;code&gt;public class AtomicExample {
+      
+          final AtomicLong atomic1 = new AtomicLong(0);
+          final AtomicLong atomic2 = new AtomicLong(0);
+          final AtomicLong atomic3 = new AtomicLong(0);
+          final AtomicLong atomic4 = new AtomicLong(0);
+          final AtomicLong atomic5 = new AtomicLong(0);
+          final AtomicLong atomic6 = new AtomicLong(0);
+          final AtomicLong atomic7 = new AtomicLong(0);
+          final AtomicLong atomic8 = new AtomicLong(0);
+          final AtomicLong atomic9 = new AtomicLong(0);
+          final AtomicLong atomic10 = new AtomicLong(0);
+          final AtomicReference atomic11 = new AtomicReference&amp;lt;String&amp;gt;(&quot;String&quot;);
+          final AtomicReference atomic12 = new AtomicReference&amp;lt;String&amp;gt;(&quot;String&quot;);
+          final AtomicReference atomic13 = new AtomicReference&amp;lt;String&amp;gt;(&quot;String&quot;);
+          final AtomicReference atomic14 = new AtomicReference&amp;lt;String&amp;gt;(&quot;String&quot;);
+          final AtomicReference atomic15 = new AtomicReference&amp;lt;String&amp;gt;(&quot;String&quot;);
+          final AtomicReference atomic16 = new AtomicReference&amp;lt;String&amp;gt;(&quot;String&quot;);
+          final AtomicReference atomic17 = new AtomicReference&amp;lt;String&amp;gt;(&quot;String&quot;);
+          final AtomicReference atomic18 = new AtomicReference&amp;lt;String&amp;gt;(&quot;String&quot;);
+          final AtomicReference atomic19 = new AtomicReference&amp;lt;String&amp;gt;(&quot;String&quot;);
+          final AtomicReference atomic20 = new AtomicReference&amp;lt;String&amp;gt;(&quot;String&quot;);
+      
+          public static void main(String[] args) throws Exception {
+              List&amp;lt;AtomicExample&amp;gt; list = new LinkedList&amp;lt;AtomicExample&amp;gt;();
+              for (int i = 0; i &amp;lt; 1000000; i++) {
+                  list.add(new AtomicExample());
+              }
+              System.out.println(&quot;Created instances 1000000&quot;);
+      
+              System.in.read();
+          }
       }
       &lt;/code&gt;&lt;/pre&gt;
       
-      &lt;p&gt;What the method does is to read messages and the pass them through a pipeline for further processing. But how to make the method smaller without loose functionality? The key here is that the method checks on every execution if &lt;code&gt;isAutoRead() == false&lt;/code&gt; and if not remove the interest ops from the SelectionKey. But the default is &lt;code&gt;true&lt;/code&gt; and will never be &lt;code&gt;false&lt;/code&gt; and almost noone will ever cheange this behavior (as it's for advanced usage only). So why not move the code out there, as we only need to save a few bytes&amp;#8230;&lt;/p&gt;
+      &lt;p&gt;You may think this is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but which are still related. Like all of them are created for each new connection.&lt;/p&gt;
       
-      &lt;p&gt;So here we go:&lt;/p&gt;
+      &lt;p&gt;Now let us have a look at how much memory is retained by them. For this I used YourKit but any other tool which can inspect heap-dumps should just work fine.&lt;/p&gt;
       
-      &lt;pre&gt;&lt;code&gt;private final class NioMessageUnsafe extends AbstractNioUnsafe {
-          ...
+      &lt;p&gt;&lt;img src=&quot;http://normanmaurer.me/blog/images/AtomicExample.png&quot; alt=&quot;AtomicExample&quot; title=&quot;Memory usage of AtomicExample&quot;&gt;&lt;/p&gt;
       
-          private void removeReadOp() {
-              SelectionKey key = selectionKey();
-              int interestOps = key.interestOps();
-              if ((interestOps &amp;amp; readInterestOp) != 0) {
-                  // only remove readInterestOp if needed
-                  key.interestOps(interestOps &amp;amp; ~readInterestOp);
+      &lt;p&gt;As you can see &lt;code&gt;AtomicLong&lt;/code&gt; and &lt;code&gt;AtomicReference&lt;/code&gt; instances took about about 400 MB of memory where &lt;code&gt;AtomicExample&lt;/code&gt; itself takes up 96MB. This makes up a a sum of ca. 500 MB memory that is used by each AtomicExample instance that is created.&lt;/p&gt;
+      
+      &lt;p&gt;Now let's do a second version of this class but replace &lt;code&gt;AtomicLong&lt;/code&gt; with &lt;code&gt;volatile long&lt;/code&gt; and &lt;code&gt;AtomicLongFieldUpdater&lt;/code&gt;. Beside this we also replace &lt;code&gt;AtomicReference&lt;/code&gt; with &lt;code&gt;volatile String&lt;/code&gt; and &lt;code&gt;AtomicReferenceFieldUpdater&lt;/code&gt;.&lt;/p&gt;
+      
+      &lt;p&gt;The code looks like this now:&lt;/p&gt;
+      
+      &lt;pre&gt;&lt;code&gt;public class AtomicFieldExample {
+      
+          volatile long atomic1 = 0;
+          volatile long atomic2 = 0;
+          volatile long atomic3 = 0;
+          volatile long atomic4 = 0;
+          volatile long atomic5 = 0;
+          volatile long atomic6 = 0;
+          volatile long atomic7 = 0;
+          volatile long atomic8 = 0;
+          volatile long atomic9 = 0;
+          volatile long atomic10 = 0;
+          volatile String atomic11 = &quot;String&quot;;
+          volatile String atomic12 = &quot;String&quot;;
+          volatile String atomic13 = &quot;String&quot;;
+          volatile String atomic14 = &quot;String&quot;;
+          volatile String atomic15 = &quot;String&quot;;
+          volatile String atomic16 = &quot;String&quot;;
+          volatile String atomic17 = &quot;String&quot;;
+          volatile String atomic18 = &quot;String&quot;;
+          volatile String atomic19 = &quot;String&quot;;
+          volatile String atomic20 = &quot;String&quot;;
+      
+          static final AtomicLongFieldUpdater&amp;lt;AtomicFieldExample&amp;gt; ATOMIC1_UPDATER = 
+                  AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic1&quot;);
+          static final AtomicLongFieldUpdater&amp;lt;AtomicFieldExample&amp;gt; ATOMIC2_UPDATER = 
+                  AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic2&quot;);
+          static final AtomicLongFieldUpdater&amp;lt;AtomicFieldExample&amp;gt; ATOMIC3_UPDATER = 
+                  AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic3&quot;);
+          static final AtomicLongFieldUpdater&amp;lt;AtomicFieldExample&amp;gt; ATOMIC4_UPDATER = 
+                  AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic4&quot;);
+          static final AtomicLongFieldUpdater&amp;lt;AtomicFieldExample&amp;gt; ATOMIC5_UPDATER = 
+                  AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic5&quot;);
+          static final AtomicLongFieldUpdater&amp;lt;AtomicFieldExample&amp;gt; ATOMIC6_UPDATER = 
+                  AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic6&quot;);
+          static final AtomicLongFieldUpdater&amp;lt;AtomicFieldExample&amp;gt; ATOMIC7_UPDATER = 
+                  AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic7&quot;);
+          static final AtomicLongFieldUpdater&amp;lt;AtomicFieldExample&amp;gt; ATOMIC8_UPDATER = 
+                  AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic8&quot;);
+          static final AtomicLongFieldUpdater&amp;lt;AtomicFieldExample&amp;gt; ATOMIC9_UPDATER = 
+                  AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic9&quot;);
+          static final AtomicLongFieldUpdater&amp;lt;AtomicFieldExample&amp;gt; ATOMIC10_UPDATER = 
+                  AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic10&quot;);
+          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC11_UPDATER = 
+                  AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic11&quot;);
+          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC12_UPDATER = 
+                  AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic12&quot;);
+          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC13_UPDATER = 
+                  AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic13&quot;);
+          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC14_UPDATER = 
+                  AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic14&quot;);
+          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC15_UPDATER = 
+                  AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic15&quot;);
+          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC16_UPDATER = 
+                  AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic16&quot;);
+          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC17_UPDATER = 
+                  AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic17&quot;);
+          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC18_UPDATER = 
+                  AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic18&quot;);
+          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC19_UPDATER = 
+                  AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic19&quot;);
+          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC20_UPDATER = 
+                  AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic20&quot;);
+      
+          public static void main(String[] args) throws Exception {
+              List&amp;lt;AtomicFieldExample&amp;gt; list = new LinkedList&amp;lt;AtomicFieldExample&amp;gt;();
+              for (int i = 0; i &amp;lt; 1000000; i++) {
+                  list.add(new AtomicFieldExample());
               }
-          }
+              System.out.println(&quot;Created instances 1000000&quot;);
       
-          @Override
-          public void read() {
-              assert eventLoop().inEventLoop();
-              if (!config().isAutoRead()) {
-                  removeReadOp();
-              }
-      
-              final ChannelConfig config = config();
-              ...
+              System.in.read();
           }
-          ...
       }
       &lt;/code&gt;&lt;/pre&gt;
       
-      &lt;p&gt;You see I just moved everything to the new method called &lt;code&gt;removeReadOp&lt;/code&gt;. Now running the application again and re-run the same test as before the JIT was able to finally inline it. &lt;/p&gt;
+      &lt;p&gt;As you see the code becomes a bit more bloated, hopefully it pays out. Again let us take a look at the memory usage as before.&lt;/p&gt;
       
-      &lt;pre&gt;&lt;code&gt;               !              @ 42   io.netty.channel.nio.AbstractNioMessageChannel$NioMessageUnsafe::read (288 bytes)   inline (hot)
-      &lt;/code&gt;&lt;/pre&gt;
+      &lt;p&gt;&lt;img src=&quot;http://normanmaurer.me/blog/images/AtomicFieldExample.png&quot; alt=&quot;AtomicFieldExample&quot; title=&quot;Memory usage of AtomicFieldExample&quot;&gt;&lt;/p&gt;
       
-      &lt;p&gt;This eliminates the overhead of an method invocation / dispatch and so makes the execution of the code faster. You can find the full issue details in &lt;a href=&quot;https://github.com/netty/netty/issues/1812&quot;&gt;issue #1812&lt;/a&gt;. &lt;/p&gt;
+      &lt;p&gt;As you can see from the screenshot the memory footprint is a lot smaller. In fact it now needs not more then ca. 136MB of memory for the 1M instances of &lt;code&gt;AtomicFieldExample&lt;/code&gt;. This is a nice improvement compared to the baseline memory footprint. Now think about how much memory you can save if you have a few cases where you can replace Atomic* classes with volatile and Atomic*FieldUpdater in classes that are instanced a lot.&lt;/p&gt;
       
-      &lt;h4 id=&quot;make-jits-job-easier&quot;&gt;Make JIT's job easier&lt;/h4&gt;
-      
-      &lt;p&gt;Beside have small methods there are other things you can do the help the JIT to inline methods. Inlining of methods is a lot &quot;easier&quot; by:&lt;/p&gt;
+      &lt;p&gt;You may ask yourself why the &lt;code&gt;AtomicFieldExample&lt;/code&gt; is larger then the &lt;code&gt;AtomicExample&lt;/code&gt;. This is caused by the extra memory you need to store the references + longs. 
+      &lt;code&gt;AtomicFieldExample&lt;/code&gt; has 10 longs + 10 references. This gives us:&lt;/p&gt;
       
       &lt;ul&gt;
-        &lt;li&gt;Use private methods when possible, as this way there is no need to check for other classes that override those methods&lt;/li&gt;
-        &lt;li&gt;Use final classes / methods for the same reason as stated above&lt;/li&gt;
-        &lt;li&gt;Use static methods for the same reason as stated above.&lt;/li&gt;
+        &lt;li&gt;10 * 8 bytes (for the longs)&lt;/li&gt;
+        &lt;li&gt;10 * 4 bytes (for the references)&lt;/li&gt;
+        &lt;li&gt;1 * 16 bytes (for itself)&lt;/li&gt;
       &lt;/ul&gt;
       
-      &lt;p&gt;It's also fair to say that have a &quot;flat&quot; class hierarchy helps a lot. The JVM / JIT does especially handle situations very well when you have only two implementations of a specific interface or abstract base class. This is because it can handle things quite easy with an almost free instanceof check. For more informations on this topic please check &lt;a href=&quot;http://www.cliffc.org/blog/2007/11/06/clone-or-not-clone/&quot;&gt;Cliff Clicks post&lt;/a&gt;.&lt;/p&gt;
+      &lt;p&gt;&lt;code&gt;AtomicExample&lt;/code&gt; has 20 refernces. This gives us:&lt;/p&gt;
       
-      &lt;h4 id=&quot;inline--inline&quot;&gt;Inline != Inline&lt;/h4&gt;
+      &lt;ul&gt;
+        &lt;li&gt;20 * 4 bytes (for the references)&lt;/li&gt;
+        &lt;li&gt;1 * 16 bytes (for itself)&lt;/li&gt;
+      &lt;/ul&gt;
       
-      &lt;p&gt;Even if a method is inlined it may not perform as well as another inlined method. Why is that? Basically it makes a difference if a protected/public method is inlined or a private/static one. This is because even if a protected / public method is inlined it still needs to do type-checks to be safe, as another class may be loaded that override/implement those. This is not the case for private / static methods, as the JVM / JIT knows here that those will always be the same.&lt;/p&gt;
+      &lt;p&gt;So it only pays off because we save the extra memory overhead of AtomicLong and AtomicReference itself. So to put it straight: &lt;strong&gt;Every Object has a fixed overhead&lt;/strong&gt;.&lt;/p&gt;
       
-      &lt;p&gt;So in some situations it may pay off to just &quot;copy&quot; code and not use abstract / protected / public etc to share it. &lt;strong&gt;But&lt;/strong&gt; always think about the tradeoffs, which are mainly caused by maintance hell. So only do it if you really need to. As always meassure it, and see if you need the last 2% performance. So don't say I haven't warned you ;)&lt;/p&gt;
+      &lt;p&gt;Beside the memory savings there are some other nice effect here, we did not mention before: &lt;/p&gt;
       
-      &lt;h4 id=&quot;summary&quot;&gt;Summary&lt;/h4&gt;
+      &lt;ul&gt;
+        &lt;li&gt;Because we save Objects the Garbage Collector has less overhead to care about, as it needs to keep track of every Object.&lt;/li&gt;
+        &lt;li&gt;We save the tax of the built in monitor which comes as part of each Object&lt;/li&gt;
+      &lt;/ul&gt;
       
-      &lt;p&gt;So does it worth all the effort? As always it depends&amp;#8230;  But if you are sure the hot-method is the one for the common use-pattern and you can split it up to move the &quot;non-common&quot; path out of the method and not make it complex as hell, YES it worth it.&lt;/p&gt;
+      &lt;h2 id=&quot;summary&quot;&gt;Summary&lt;/h2&gt;
+      
+      &lt;p&gt;To summarize it, it may pay off to replace Atomic* objects with the corresponding volatile + Atomic*FieldUpdater. How much you save in terms of memory varies depending on what you replace. But the savings can be huge, especially when we talk about small &quot;Objects&quot;. &lt;/p&gt;
+      
+      &lt;p&gt;Let us do the maths again:&lt;/p&gt;
+      
+      &lt;ul&gt;
+        &lt;li&gt;
+      &lt;code&gt;AtomicLong&lt;/code&gt; = 24 bytes + 4 bytes (for the reference to it)&lt;/li&gt;
+        &lt;li&gt;
+      &lt;code&gt;volatile long&lt;/code&gt; = 8 bytes&lt;/li&gt;
+      &lt;/ul&gt;
+      
+      &lt;p&gt;This gives us a saving of 16 bytes!&lt;/p&gt;
+      
+      &lt;h2 id=&quot;acknowledgements&quot;&gt;Acknowledgements&lt;/h2&gt;
+      &lt;p&gt;Special thanks go out to &lt;a href=&quot;https://twitter.com/nitsanw&quot;&gt;Nitsan Wakart&lt;/a&gt;, &lt;a href=&quot;https://twitter.com/daschl&quot;&gt;Michael Nitschinger&lt;/a&gt; and &lt;a href=&quot;https://twitter.com/tsunanet&quot;&gt;Benoît Sigoure&lt;/a&gt; for the review and feedback.&lt;/p&gt;
     </content>
   </entry>
 </feed>
