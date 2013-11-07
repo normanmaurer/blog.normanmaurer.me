@@ -9,5 +9,6 @@ As part of my Job at [Red Hat](http://www.redhat.com) I'm sometimes gives presen
 
 Here you find various of those. This list is currently not complete but I will try to complete it over the time.
 
+  * __High performance networking on the JVM - Lessons learned__, JAX, May 2013:  [Slides](/presentations/2013-jax-networking-on-jvm)
   * __Netty 4 - Network - Application development the easy way__, W-JAX, Nov 2013:  [Slides](/presentations/2013-wjax-netty)
 
