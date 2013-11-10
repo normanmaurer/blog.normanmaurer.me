@@ -73,7 +73,7 @@ This will cut-down the overhead dramatic, but you can reduce it even more with s
 
 ## Use static Throwable with no stacktrace at all
 
-Sometimes you may not need a stacktrace at all as the `Throwable` itself is information enough what's going on. In this case you can just use a static `Throwablei` and reuse it.
+Sometimes you may not need a stacktrace at all as the `Throwable` itself is information enough what's going on. In this case you can just use a static `Throwable` and reuse it.
 
 What you should remember in this case is to set the stacktrace to an empty array to not have some "wrong" stacktrace show up. 
 
@@ -92,6 +92,7 @@ What you should remember in this case is to set the stacktrace to an empty array
         }
      }
 
+For example in a network application a closed channel is not a really exceptional state anyway. So this may be a good fit in this case. In fact we do something similar in [Netty](http://netty.io) for exactly this case.
 
 __Caution: only do this if you are sure you know what you are doing!__
 
@@ -123,3 +124,6 @@ As you can see here creating a new `Throwable` is by far the slowest way to hand
 You should be aware of how expensive `fillInStackTrace()` is and so think hard about how and when you create new instances of it. This is also true for sub-types.
 
 To make it short, nothing is for free so think about what you are doing before you run into performance problems later.
+
+
+Thanks again to [Nitsan Wakart](https://twitter.com/nitsanw) for the review!
