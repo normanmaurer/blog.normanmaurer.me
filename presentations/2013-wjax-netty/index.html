@@ -1,0 +1,840 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+
+		<title>Netty - Network - Application development the easy way</title>
+
+		<meta name="description" content="A framework for easily creating beautiful presentations using HTML">
+		<meta name="author" content="Hakim El Hattab">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="css/reveal.min.css">
+		<link rel="stylesheet" href="css/theme/beige.css" id="theme">
+
+		<!-- For syntax highlighting -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- If the query includes 'print-pdf', use the PDF print sheet -->
+		<script>
+			document.write( '<link rel="stylesheet" href="css/print/' + ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">' );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+	<body>
+		<div class="reveal">
+			<!-- Any section element inside of this container is displayed as a slide -->
+            <div class="slides">
+                <section>
+                    <img src="images/netty_logo.png" style="border: none;">&nbsp;<br>
+
+                    <p>Network - Application development the easy way</p>
+                    <p>
+                        <font color="#666699">
+                            <a href="http://netty.io">http://netty.io</a>
+                        </font>
+                    </p>
+                    <p>
+                        <font color="#666699">
+                            <a href="https://github.com/netty/netty ">https://github.com/netty/netty</a>
+                        </font>
+                    </p>
+                    <p>
+                        <font color="#666699">@netty_project</font>
+                    </p>
+                </section>
+
+                <section>
+                    <h3>Norman Maurer&nbsp;</h3>
+                    <img src="images/redhat.png" style="border: none;">
+                    <div>
+                        <ul>
+                            <li style="text-align: justify;">Red Hat (JBoss) - EAP Core Team</li>
+                            <li style="text-align: justify;">Former contractor for Apple Inc</li>
+                            <li style="text-align: justify;">Author - Netty in Action</li>
+                            <li style="text-align: justify;">Apache Software Foundation Member</li>
+                            <li style="text-align: justify;">Netty &nbsp;/&nbsp;<span style="">Vert.x&nbsp;</span>Core-Developer and all things NIO</li>
+                            <li style="text-align: justify;">Java and Scala</li>
+                            <li style="text-align: justify;">Twitter: @normanmaurer</li>
+                            <li style="text-align: justify;">Github: https://github.com/normanmaurer</li>
+                        </ul>
+                    </div>
+                </section>
+                
+                <section>
+                    <h2>What is NETTY ?</h2>
+                    <blockquote>Netty is a NIO client server framework which enable quick and easy development of network applications such as protocol servers and clients...</blockquote>
+                </section>
+            
+                <section>
+                    <h2>YET ANOTHER Network FrameWORK ?</h2>
+                    <br>
+                    <div>YES!</div>
+                </section>
+
+                <section>
+                    <h2>
+                        <blockquote>
+                            <span style="letter-spacing: 0.0px;">@!# WTF, why should I care ?</span>
+                        </blockquote>
+                    </h2>
+                </section>
+            
+                <section>
+                    <h2>Features</h2>
+                    <div>
+                        <img src="images/components.png" style="border: none;">
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Features</h2>
+                    <div>
+                        <ul>
+                            <li>Asynchronous</li>
+                            <li>Simple and unified API</li>
+                            <li>High-Performing</li>
+                            <li>Listeners and Callbacks supported</li>
+                            <li>Zero-file-copy</li>
+                            <li>Buffer Pooling</li>
+                            <li>Gathering / Scattering</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <div style="text-align: center;">... and many more</div>
+                </section>
+                
+                <section>
+                    <h2>Asynchronous, what does this mean ?</h2>
+                </section>
+                
+                <section>
+                    <h2>Asynchronous...</h2>
+                    <div>
+                        <ul>
+                            <li>I/O Operations don't block at all!</li>
+                            <li>Get notified once the operation completes</li>
+                            <li>Be able to share one Thread across many connections</li>
+                        </ul>
+                      <img src="images/boring_2.jpg" style="border: none;">
+                      <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/56223083@N06/5514161603/</p>
+                      <blockquote>As waiting is b0ring....</blockquote>
+                    </div>
+                </section>
+                
+                <section>
+                    <blockquote>But synchronous / blocking IO &nbsp;served me well! Again, why should I care ?</blockquote>
+                </section>
+                
+                <section>
+                    <h2>Blocking-IO may not SCALE!</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <blockquote>
+                        <font face="arial">
+                            <i>Usually a Thread takes memory from 256kb to 1mb for the stack space!</i>
+                        </font>
+                    </blockquote>
+                    <div>
+                        <br>
+                    </div>
+                    <h3>
+                        <i>Good luck with serving 1 million concurrent connections</i>
+                    </h3>
+                    <blockquote>Ouch....</blockquote>
+                </section>
+            
+                <section>
+                    <img src="images/blew_it.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/djjasoncook/8608405432/</p>               
+                </section>
+                
+                <section>
+                    <h2>Netty to the rescue</h2>
+                    <img src="images/help_wanted.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/brizzlebornandbred/6136653327/</p>
+                </section>
+
+                <section>
+                    <h2>Asynchronous in action</h2>
+                    <div><pre><code class="java">    Channel channel = ...
+    ChannelFuture cf = channel.writeAndFlush(data);
+    cf.addListener(
+        new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future)
+                throws Exception {
+                if(!future.isSuccess() {
+                    future.cause().printStacktrace();
+                    ...
+                }
+                ...
+            }
+        });
+    ...
+    // or block and wait for completion if you really need!
+    cf.sync();</code></pre></div>
+                </section>
+                        
+                <section>
+                    <h2>Transports</h2>
+                    <div>
+                        <ul>
+                            <li>NIO</li>
+                            <li>OIO</li>
+                            <li>Local</li>
+                            <li>Embedded</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <blockquote>And more to come ....</blockquote>
+                </section>
+                
+                <section>
+                    <h2>Supported protocols</h2>
+                    <div>
+                        <ul>
+                            <li>TCP</li>
+                            <li>UDP</li>
+                            <li>SCTP*</li>
+                            <li>UDT</li>
+                            <li>Serial</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <font face="courier new">* Only supported on linux</font>
+                    </div>
+                </section>
+    
+                <section>
+                    <h2>Simple state Model</h2>
+                    <div>
+                        <img src="images/state.png" style="border: none;">
+                    </div>
+                </section>
+                                
+                <section>
+                    <h2>State Flow&nbsp;</h2>
+                    <div>
+                        <img src="images/state_2.png" style="border: none;">
+                    </div>
+                </section>
+                            
+                <section>
+                    <h2>Data Container</h2>
+                    <div>
+                        <blockquote>ByteBuf == ByteBuffer on steroids!</blockquote>
+                    </div>
+                    <div>
+                        <img src="images/containers.jpg" style="border: none;">
+                        <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/lightmash/3183278318/</p>
+                    </div>
+                </section>
+                                        
+                <section>
+                    <h2>ByteBuf</h2>
+                    <div>
+                        <ul>
+                            <li>Separate index for reader/writer</li>
+                            <li>CompositeByteBuf&nbsp;</li>
+                            <li>Direct and Heap implementations</li>
+                            <li>Resizable with max capacity</li>
+                            <li>Support for reference-counting</li>
+                            <li>Method-Chaining</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <pre><code class="java">    ByteBuf buf = ...;
+    buf.writeInt(1).writeBytes(data).writeBoolean(true)...</code></pre>
+                </section>
+
+                <section>
+                    <h2>ByteBufAllocator</h2>
+                    <div>
+                        <img src="images/pooled_buffers.png" style="border: none;">
+                        <p style="font-family:arial;font-size:12px;">© https://blog.twitter.com/2013/netty-4-at-twitter-reduced-gc-overhead</p>
+                    </div>
+                    <blockquote>Pooling or not pooling....</blockquote>
+                </section>
+                                            
+                <section>
+                    <h2>Channelhandler</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <blockquote>Users building blocks!</blockquote>
+                    <img src="images/bricks.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/bdesham/2432400623/</p>
+                </section>
+                                            
+                <section>
+                    <h2>ChannelHandler</h2>
+                    <div>
+                        <img src="images/channel_handlers.png" style="border: none;">
+                        <br>
+                    </div>
+                    <blockquote>Your business logic needs a place, and this is where it belongs too</blockquote>
+                </section>
+                                                
+                <section>
+                    <h2>ChannelHandler Facts</h2>
+                    <div>
+                        <ul>
+                            <li>Inbound vs. Outbound</li>
+                            <li>Always called by the assigned EventExecutor</li>
+                            <li>Type-safe*</li>
+                        </ul>
+                    </div>
+                </section>
+                                                
+                <section>
+                    <h2>Example use cases</h2>
+                    <div>
+                        <ul>
+                            <li>Convert data a.k.a Encoder / Decoder</li>
+                            <li>Business-Logic</li>
+                            <li>Handle state changes</li>
+                        </ul>
+                    </div>
+                </section>
+                                                
+                <section>
+                    <h2>Provided codecs</h2>
+                    <blockquote>We have a lot of them!</blockquote>
+                </section>
+                                                
+                <section>
+                    <h2>Provided Codecs</h2>
+                    <div>
+                        <ul>
+                            <li>HTTP</li>
+                            <li>Websockets</li>
+                            <li>SPDY</li>
+                            <li>Serialization</li>
+                            <li>JBoss Marshalling</li>
+                            <li>Protobufs</li>
+                            <li>SSL</li>
+                            <li>Zlib</li>
+                        </ul>
+                    </div>
+                </section>
+                                                 
+                <section>
+                    <h2>Provided Codecs - The future</h2>
+                    <div>
+                        <ul>
+                            <li>DNS</li>
+                            <li>Memcached Binary</li>
+                            <li>SockJS</li>
+                        </ul>
+                    </div>
+                </section>
+                                                
+                <section>    
+                    <h2>Adapters</h2>
+                    <blockquote>Makes your life easier</blockquote>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <ul>
+                            <li>ChannelInboundHandlerAdapter</li>
+                            <li>ChannelOutboundHandlerAdapter</li>
+                            <li>SimpleChannelInboundHandler</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Adapter in Action</h2>
+                    <pre><code class="java">    @Sharable
+    public class  Echo4ServerHandler extends 
+            ChannelInboundHandlerAdapter {        
+        @Override 
+        public void channelRead(ChannelHandlerContext ctx,
+                Object msg) {
+            ctx.writeAndFlush(msg);
+        }
+        
+        @Override
+        public void exceptionCaught(ChannelHandlerContext ctx,
+                Throwable cause) {
+            cause.printStacktrace();
+            ctx.close();
+        }
+    }</code></pre>
+                </section>
+                                                
+                <section>
+                    <h2>Decoder</h2>
+                    <div>
+                        <ul>
+                            <li>ByteToMessageDecoder</li>
+                            <li>MessageToMessageDecoder</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Encoder</h2>
+                    <div>
+                        <ul>
+                            <li>MessageToByteEncoder</li>
+                            <li>MessageToMessageEncoder</li>
+                        </ul>
+                    </div>
+                </section>
+                                                
+                <section>
+                    <h2>Hybrids</h2>
+                    <div>
+                        <ul>
+                            <li>ByteToByteCodec</li>
+                            <li>ByteToMessageCodec</li>
+                            <li>MessageToMessageCodec</li>
+                        </ul>
+                    </div>
+                </section>
+                                                
+                <section>
+                    <h2>Other Often useful Decoders</h2>
+                    <div>
+                        <ul>
+                            <li>ReplayDecoder</li>
+                            <li>FixedLengthFrameDecoder</li>
+                            <li>LengthFieldBasedFrameDecoder</li>
+                            <li>LineBasedFrameDecoder</li>
+                            <li>DelimiterBasedFrameDecoder</li>
+                        </ul>
+                    </div>
+                </section>
+                
+                <section>
+                    <h2>ChannelPipeline</h2>
+                    <div>The home for all your ChannelHandlers</div>
+                    <div>
+                        <img src="images/pipeline.jpg" style="border: none;">
+                        <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/rickz/2113212191/</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>ChannelPipeline</h2>
+                    <div>
+                        <ul>
+                            <li>Holds the ChannelHandlers for a Channel</li>
+                            <li>All events will get passed through it</li>
+                            <li>On the fly modification</li>
+                            <li>One-to-one relation between Channel and ChannelPipeline</li>
+                        </ul>
+                    </div>
+                </section>
+                                                
+                <section>
+                    <h2>ChannelPipeline</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <div>Kind of a unix-pipe-like thing...</div>
+                    <div>
+                        <br>
+                    </div>
+                    <pre>$ echo "Netty is shit...." | sed -e 's/is /is the /'
+                    Netty is the shit....
+                        
+                    </pre>
+                    <br>
+                    <blockquote>You see, everything is adjustable!</blockquote>
+                </section>
+                                                
+                <section>
+                    <h2>Adding ChannelHandlers</h2>
+                    <pre><code class="java">    Channel ch = ...;
+    ChannelPipeline p = ch.pipeline();
+    EventExecutor e1 = new DefaultEventExecutor(16);
+    EventExecutor e2 = new DefaultEventExecutor(8);
+
+    // Executed in EventLoop Thread
+    p.addLast(new MyProtocolCodec());
+
+    // Executed in one of the Threads of e1
+    p.addLast(e1, new MyDatabaseAccessingHandler());
+
+    // Executed in one of the Threads of e1
+    p.addLast(e2, new MyHardDiskAccessingHandler());</code></pre>
+                </section>
+                                                
+                <section>
+                    <h2>Event-Loop</h2>
+                    <div>Someone needs to do the heavy work!</div>
+                    <img src="images/event_loop.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/stavos52093/9645884201/</p>
+                </section>
+                                                
+                <section>
+                    <h2>Event-loop</h2>
+                    <div>
+                        <ul>
+                            <li>One-to-Many relation between EventLoop and Channel</li>
+                            <li>Process "events" and hand over work to the ChannelPipeline</li>
+                        </ul>
+                        <div>
+                            <br>
+                        </div>
+                    </div>
+                </section>
+                 
+                <section>
+                    <h2>
+                        <br>
+                    </h2>
+                    <div>
+                        <p style="margin-bottom: 0.0px;font-size: 48.0px;line-height: normal;">
+                            <span style="letter-spacing: 0.0px;">All Tasks executed in Event-Loop!</span>
+                        </p>
+                    </div>
+                    <blockquote>
+                        <span style="letter-spacing: 0.0px;">No need to worry about synchronization</span>
+                    </blockquote>
+                    <img src="images/thumb_up_2.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/vegaseddie/5700609302/</p>
+                </section>
+                                                    
+                <section>
+                    <img src="images/caution.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/disowned/1159135004/</p>
+
+                    <div>Repeat with me:</div>
+                    <blockquote>I promise to never block the Event-Loop!</blockquote>
+                    <div>
+                        <br>
+                    </div>
+                </section>
+            
+                <section>
+                    <h2>EventLoop Hierarchy</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <img src="images/eventexecutor.png" style="border: none;">
+                        <br>
+                    </div>
+                    <div>
+                        <br>
+                    </div>
+                    <blockquote>All the ScheduleExecutorService goodies for free!</blockquote>
+                </section>
+                                                        
+                <section>
+                    <h2>EventLoop - How does it work</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <img src="images/eventloop.png" style="border: none;">
+                        <br>
+                    </div>
+                </section>
+            
+                <section>
+                    <h2>Run a Task in the EventLoop</h2>
+                    <pre><code class="java">    public class MyHandler extends 
+            ChannelOutboundHandlerAdapter {
+        @Override
+        public void write(ChannelHandlerContext ctx,
+                Object msg, ChannelPromise promise) {
+            ctx.write(msg, promise);
+        
+            if (!promise.isDone() {
+                // schedule task for in 30 seconds
+                ctx.executor().schedule(new MyWriteTimeoutTask(
+                    promise), 30, TimeUnit.SECONDS);
+            }
+            // Run an arbitrary task from an I/O thread.
+            ctx.executor().execute(new Runnable() { ... });
+        }
+    }</code></pre>
+                </section>
+                                                            
+                <section>
+                    <h2>Bootstrap your application</h2>
+                    <blockquote>It's time to accept some real traffic</blockquote>
+                    <img src="images/bootstrap.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/postbear/4500894615/</p>
+                </section>
+                                                            
+                <section>
+                    <h2>Bootstrap</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <ul>
+                            <li>Fluent-API a.k.a DSL</li>
+                            <li>Graceful shutdown</li>
+                            <li>Lightweight</li>
+                        </ul>
+                    </div>
+                </section>
+                                                           
+                <section>
+                    <h2>Bootstrap a Server</h2>
+                    <pre><code class="java">    ServerBootstrap b = new ServerBootstrap();
+    EventLoopGroup group = new NioEventLoopGroup(numThreads);
+    try {
+        b.group(group, group))
+            .channel(NioServerSocketChannel.class)
+            .localAddress(new InetSocketAddress(port))
+            .childHandler(new ChannelInitializer&lt;SocketChannel&gt;() {
+                @Override
+                public void initChannel(SocketChannel ch) {
+                    ch.pipeline().addLast(new YourChannelHandler());
+                }
+            });
+        ChannelFuture f = b.bind().sync();
+        f.channel().closeFuture().sync();
+    } finally {
+        group.shutdownGracefully();
+    }</code></pre>
+                </section>
+                                                            
+                <section>
+                    <h2>Bootstrap a Client</h2>
+                    <pre><code class="java">    Bootstrap b = new Bootstrap();
+    EventLoopGroup group = new NioEventLoopGroup(numThreads);
+    try { 
+        b.group(group)
+            .channel(NioSocketChannel.class)
+            .remoteAddress(new InetSocketAddress("10.0.0.1", 25))
+            .handler(new ChannelInitializer&lt;SocketChannel&gt;() {            
+                @Override
+                public void initChannel(SocketChannel ch) {  
+                    ch.pipeline().addLast(new YourChannelHandler());
+                }
+            });
+        ChannelFuture f = b.connect().sync();
+        f.channel().closeFuture().sync();
+    } finally {
+        group.shutdownGracefully();
+    }</code></pre>
+                </section>
+
+                <section>
+                    <h2>General</h2>
+                    <div>
+                        <ul>
+                            <li>ASL2 license</li>
+                            <li>Hosted at Github</li>
+                            <li>Community-driven</li>
+                        </ul>
+                    </div>
+                </section>
+                                                            
+                <section>
+                    <h2>Companies</h2>
+                    <div>
+                        <ul>
+                            <li>Red Hat</li>
+                            <li>Twitter</li>
+                            <li>Facebook</li>
+                            <li>Firebase</li>
+                            <li>Urban Airship</li>
+                            <li>LinkedIn</li>
+                            <li>Samsung</li>
+                            <li>Boundary</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <blockquote>And many more...&nbsp;</blockquote>
+                </section>
+                                                            
+                <section>
+                    <h2>(Opensource) Projects</h2>
+                    <div>
+                        <ul>
+                            <li>Vert.x</li>
+                            <li>HornetQ</li>
+                            <li>Infinispan</li>
+                            <li>Play Framework*</li>
+                            <li>Finangle</li>
+                            <li>Apache Cassandra</li>
+                            <li>Minecraft</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                        <blockquote>And again many more....</blockquote>
+                    </div>
+                </section>
+                
+                <section>
+                    <h2>Things to come</h2>
+                    <div>
+                        <ul>
+                            <li>Chained ChannelPipelines</li>
+                            <li>Native edge-triggered Transport*</li>
+                            <li>Lambda support</li>
+                        </ul>
+                    </div>
+                </section>
+                            
+                <section>
+                    <h2>Other NIO Frameworks</h2>
+                    <div>
+                        <ul>
+                            <li>Apache MINA</li>
+                            <li>Grizzly</li>
+                            <li>Akka IO</li>
+                            <li>HawtDispatch*</li>
+                            <li>JBoss XNIO*</li>
+                        </ul>
+                    </div>
+                </section>
+                                                             
+                <section>
+                    <h2>It's OpenSource - Contribute now!</h2>
+                    <div>
+                        <img src="images/empire_wants_you_2.jpg" style="border: none;">
+                        <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/legofenris/4499417549/</p>
+                    </div>
+                </section>
+                                                            
+                <section>
+                    <h2>Get Involved</h2>
+                    <div>
+                        <font face="impact">Mailinglist</font>
+                    </div>
+                    <div>
+                        https://groups.google.com/forum/#!forum/netty<br>
+                    </div>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <font face="impact">IRC</font>
+                    </div>
+                    <div>#netty irc.freenode.org</div>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <font face="impact">Website</font>
+                    </div>
+                    <div>
+                        <div style="">http://netty.io</div>
+                    </div>
+                    <div style="">
+                        <br>
+                    </div>
+                    <div style="">
+                        <font face="impact">GitHub</font>
+                    </div>
+                    <div style="">
+                        <div style="">https://github.com/netty/netty/<br>
+                        </div>
+                    </div>
+                </section>
+
+                                                            
+                <section>
+                    <h3>Too Low Level ?</h3>
+                    <div>
+                        <img src="images/vertx.jpg">
+                    </div>
+                    <blockquote>You may like Vert.x which is based on Netty!</blockquote>
+                </section>
+                                                            
+                <section>
+                    <h2>Not enough info?</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <blockquote>You may want to buy my book...</blockquote>
+                    <p>
+                        <br>
+                    </p>
+                    <p>
+                        <img src="images/netty_inaction.gif">
+                        <br>
+                    </p>                               
+                    <p>
+                        <i>http://www.manning.com/maurer/<br></i>
+                    </p>
+                    <p>
+                        <i>
+                            <br>
+                        </i>
+                    </p>
+                </section>
+                                    
+                <section>
+                    <h2>Questions please!</h2>
+                    <img src="images/riddler.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/photomequickbooth/3531951972/</p>
+                </section>
+                                    
+                <section>
+                    <h2>Thanks!</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <br>
+                    </div>
+                </section>
+            </div>
+        </section>
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.min.js"></script>
+
+		<script>
+
+			// Full list of configuration options available here:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+				transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/fade/none
+
+				// Optional libraries used to extend on reveal.js
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/showdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+					{ src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+					// { src: 'plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>

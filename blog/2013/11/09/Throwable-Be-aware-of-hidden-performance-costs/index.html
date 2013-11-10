@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>The thoughts of Norman Maurer and more</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <style>
+      body {
+        padding-top: 60px;
+      }
+    </style>
+    <link href="http://normanmaurer.github.com/blog.normanmaurer.me/stylesheets/styles.css" rel="stylesheet" type="text/css">
+    <link href="/blog.atom" rel="alternate" type="application/atom+xml">
+    <!--[if lt IE 9]>
+      <script src="//html5shim.googlecode.com/svn/trunk/html5.js" type="text/javascript"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="http://normanmaurer.github.com/blog.normanmaurer.me">The thoughts of Norman Maurer and more</a>
+          <ul class="nav">
+            <li>
+              <a href="http://normanmaurer.github.com/blog.normanmaurer.me">Home</a>
+            </li>
+            <li>
+              <a href="/blog/2013/11/09/Throwable-Be-aware-of-hidden-performance-costs/">Blog</a>
+            </li>
+            <li>
+              <a href="http://normanmaurer.github.com/blog.normanmaurer.me/blog.atom">
+                <img src="/images/feed-icon-14x14.png">
+              </a>
+            </li>
+            <li>
+              <a href="http://normanmaurer.github.com/blog.normanmaurer.me/presentations">Presentations</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="container"></div>
+    <div class="container">
+      <div id="content">
+        <article>
+          <header class="page-header">
+            <h1 class="title">
+              <a>Throwable - Be aware of hidden performance costs</a>
+            </h1>
+            <div class="meta">
+              <time>November  9, 2013</time>
+            </div>
+          </header>
+          <div class="content">
+            
+            <p>Today it's time to make you aware of the performance penalty you may pay when using <code>Throwable</code>, <code>Error</code>, <code>Exception</code> and so give you a better idea how to fix it… You may never have thought about it but using those in a wrong fashion may effect the performance of your applications in a some large degree.</p>
+            
+            <p>Ok let us start from scratch here. You often may have heard that you should only use <code>Exception</code> / <code>Throwable</code> / <code>Errori</code> for exceptional situations, something that is not the norm and signals some unexpected behaviour. This is actual a good advice but even if you follow it (which I really hope you do) there may be situations where you need to throw one.</p>
+            
+            <p>Throwing a <code>Throwable</code> (or one of it's subtypes) is not a big deal. Well it's not for free but still not the main peformance issue. The issue is what happens when you create it. </p>
+            
+            <blockquote>
+              <p>Huh ?</p>
+            </blockquote>
+            
+            <p>So why is creating a <code>Throwable</code> so expensive ? Isn't it just a simple leight-weight POJO? Simple yes, but leight-weight no! </p>
+            
+            <p>It's because usally it will call Throwable.fillInStackTrace, which needs to look down the stack and put it in the newly created Throwable. This can affect the performance of your application in a very bad way if you create a lof of them.</p>
+            
+            <p><strong>But what to do about this ?</strong></p>
+            
+            <p>There are a few techniques you can use to improve performance. Let us have a deeper look into them now.</p>
+            
+            <h2 id="lazy-create-a-throwable-and-re-use">Lazy create a Throwable and re-use</h2>
+            
+            <p>There are sometimes situations where you would like to use the same Throwable multiple times. In this case you can lazy create it and re-use it. This way you eliminate a lot of overhead. </p>
+            
+            <p>To make things more clear let us have a look at some real-world example. In this example we assume we have a list of pending writes are all failed because the underlying <code>Channel</code> was closed. </p>
+            
+            <p>The pending writes are represent by the <code>PendingWrite</code> interface as shown below.</p>
+            
+            <pre><code>public interface PendingWrite {&#x000A;    void setSuccess();&#x000A;    void setFailure(Throwable cause);     }&#x000A;</code></pre>
+            
+            <p>So we have a Writer class which will need to fail all <code>PendingWrite</code> instances bwith a <code>ClosedChannelException</code>. You may be tempted to implement it like this:</p>
+            
+            <pre><code>public class Writer {&#x000A;   &#x000A;    ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        for (PendingWrite write: writes) {&#x000A;            write.setFailure(new ClosedChannelException();&#x000A;        }    &#x000A;    }&#x000A; }&#x000A;</code></pre>
+            
+            <p>This works but if this method is called often and with a not to small array of <code>PendingWrite</code>s you are in trouble. As it will need to fill in the StackTrace for every PendingWrite you are about to fail!</p>
+            
+            <p>This is not only very wasteful but also something that is easy to optimize! The key is to lazy create the <code>ClosedChannelException</code> and re-use it for each <code>PendingWrite</code> that needs to get failed. And doing so will even result in the correct StackTrace to be filled in… <strong>JackPot!</strong></p>
+            
+            <p>So fixing this is as easy as rewrite the <code>failPendingWrites(...)</code> method as shown here:</p>
+            
+            <pre><code>public class Writer {&#x000A;   ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        ClosedChannelException error = null;&#x000A;        for (PendingWrite write: writes) {&#x000A;            if (error == null) {&#x000A;                error = new ClosedChannelException();&#x000A;            }&#x000A;            write.setFailure(error);&#x000A;        }&#x000A;    }&#x000A; }&#x000A;</code></pre>
+            
+            <p>Notice we lazy create the <code>ClosedChannelException</code> if needed and re-use the same instance for all the <code>PendingWrite</code>s in the array. 
+            This will cut-down the overhead dramatic, but you can reduce it even more with some tradeoff…</p>
+            
+            <h2 id="use-static-throwable-with-no-stacktrace-at-all">Use static Throwable with no StackTrace at all</h2>
+            
+            <p>Sometimes you may not need a stacktrace at all as the Throwable itself is information enough what's going on. In this case you may be able to just use a static Throwable and reuse it.</p>
+            
+            <p>What you should remember in this case is to set the stacktrace to an empty array to not have some "wrong" stacktrace show up. </p>
+            
+            <pre><code>public class Writer {&#x000A;    private static final ClosedChannelException CLOSED_CHANNEL_EXCEPTION = new ClosedChannelException();&#x000A;    static {&#x000A;        CLOSED_CHANNEL_EXCEPTION.setStackTrace(new StackTraceElement[0]);&#x000A;    }&#x000A;   ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        for (PendingWrite write: writes) {&#x000A;            write.setFailure(CLOSED_CHANNEL_EXCEPTION);&#x000A;        }&#x000A;    }&#x000A; }&#x000A;</code></pre>
+            
+            <p><strong>Caution: only do this if you are sure you know what you are doing!</strong></p>
+            
+            <h2 id="benchmarks">Benchmarks</h2>
+            <p>Now with all the claims it's time to actual proof them. For this I wrote a microbenchmark using <a href="http://openjdk.java.net/projects/code-tools/jmh/">JMH</a>. </p>
+            
+            <p>You can find the source code of the benchmark in the <a href="https://github.com/normanmaurer/jmh-samples/tree/master/src/main/java/me/normanmaurer/benchmarks">github repository</a>.</p>
+            
+            <p>This benchmark was run with:
+                ➜  jmh-samples git:(master) ✗ java -jar target/microbenchmarks.jar -w 10 -wi 3 -i 3 -of csv -o output.csv -odr ".<em>ThrowableBenchmark.</em>"</p>
+            
+            <p>This basically means:
+             * Run a warmup for 10 seconds
+             * Run warmup 3 times
+             * Run each benchmark 3 times
+             * Generate output as csv</p>
+            
+            <p>The benchmark result contains the ops/msec. Each op represent the call of <code>fainlPendingWrites(...)</code> with and array of 10000 <code>PendingWrite</code>s.</p>
+            
+            <p>Enough said, time to look at the outcome:</p>
+            
+            <p><img src="/blog/images/benchmark_throwable.png" alt="Throwable" title="Benchmark of different usage of Throwable" /></p>
+            
+            <p>As you can see here creating a new <code>Throwable</code> is by far the slowest way to handle it. Next one is to lazy create a <code>Throwable</code> and re-use it for the whole method invocation. The winner is to re-use a static <code>Throwable</code> with the drawback of not have any StackTrace. So I think it's fair to say using a lazy created <code>Throwable</code> is the way to go here. If you really need the last 1 % performance you could also make use of the static solution but will loose the StackTrace for debugging. So you see it's always a tradeoff.</p>
+            
+            <h2 id="summary">Summary</h2>
+            <p>You should be aware of how expensive <code>fillInStackTrace()</code> is and so think hard about how and when you create new instances of it. This is also true for sub-types.</p>
+            
+            <p>To make it short, nothing is for free so think about what you are doing before you run into performance problems later.</p>
+          </div>
+        </article>
+        <ul class="pager">
+          <li class="previous">
+            <a href="../../../../blog/2013/10/28/Lesser-known-concurrent-classes-Part-1/">&larr; Older</a>
+          </li>
+          <li>
+            <a href="../../../../index.html">List all blog posts</a>
+          </li>
+          <li class="next disabled">
+            <a href="#">Newer &rarr;</a>
+          </li>
+        </ul>
+      </div>
+      <div class="comments">
+        
+                    <div id="disqus_thread"></div>
+                    <script type="text/javascript">
+                    var disqus_shortname = 'normanmaurer';
+                    var disqus_url = "http://normanmaurer.github.com/blog.normanmaurer.me/blog/2013/11/09/Throwable-Be-aware-of-hidden-performance-costs/";
+                    var disqus_developer = null;
+                    var disqus_identifier = null;
+                    (function() {
+                      var dsq = document.createElement("script"); dsq.type = "text/javascript"; dsq.async = true;
+                      dsq.src = "http://normanmaurer.disqus.com/embed.js";
+                      (document.getElementsByTagName("head")[0] || document.getElementsByTagName("body")[0]).appendChild(dsq);
+                    })();
+                    </script>
+                    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript=normanmaurer">comments powered by Disqus.</a></noscript>
+      </div>
+      <script>
+        $( function () {
+           var syntax_root = "/javascripts/jquery-syntax/"
+        
+           if (!$.browser.msie && $( '.syntax' ).length) {
+             $.getScript( syntax_root + "jquery.syntax.min.js", function () {
+               $.syntax( {root: syntax_root,
+                         blockLayout: 'plain'} )
+             } )
+           }
+         } )
+      </script>
+      <hr>
+      <footer>
+        <p>&copy; Norman Maurer 2013</p>
+      </footer>
+    </div>
+  </body>
+</html>
+<script type="text/javascript">
+var _gaq = _gaq || [];
+_gaq.push(['_setAccount','UA-45259657-1']);
+_gaq.push(['_trackPageview']);
+(function() {
+ var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+ ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+ var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+})();
+</script>
