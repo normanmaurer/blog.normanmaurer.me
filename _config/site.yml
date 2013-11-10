@@ -14,7 +14,7 @@ profiles:
       # use master branch for <username>.github.io repository
       #branch: master
 
-  stagign:
+  staging:
     disqus: normanmaurer
     base_url: http://normanmaurer.github.com/blog.normanmaurer.me
     deploy:
