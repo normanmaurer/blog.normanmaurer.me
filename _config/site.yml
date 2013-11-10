@@ -13,3 +13,13 @@ profiles:
       branch: gh-pages
       # use master branch for <username>.github.io repository
       #branch: master
+
+  stagign:
+    disqus: normanmaurer
+    base_url: http://normanmaurer.github.com/blog.normanmaurer.me
+    deploy:
+      host: github_pages
+      # use gh-branch for repositories other than <username>.github.io
+      #branch: gh-pages
+      # use master branch for <username>.github.io repository
+      branch: master
