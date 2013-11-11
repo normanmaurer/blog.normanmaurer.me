@@ -41,7 +41,7 @@ We have a `Writer` class which will need to fail all `PendingWrite` instances wi
 
         private void failPendingWrites(PendingWrite... writes) {
             for (PendingWrite write: writes) {
-                write.setFailure(new ClosedChannelException();
+                write.setFailure(new ClosedChannelException());
             }    
         }
      }
