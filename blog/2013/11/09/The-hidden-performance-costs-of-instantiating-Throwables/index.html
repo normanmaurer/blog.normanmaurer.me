@@ -82,7 +82,7 @@
             
             <p>We have a <code>Writer</code> class which will need to fail all <code>PendingWrite</code> instances with a <code>ClosedChannelException</code>. You may be tempted to implement it like this:</p>
             
-            <pre><code>public class Writer {&#x000A;   &#x000A;    ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        for (PendingWrite write: writes) {&#x000A;            write.setFailure(new ClosedChannelException();&#x000A;        }    &#x000A;    }&#x000A; }&#x000A;</code></pre>
+            <pre><code>public class Writer {&#x000A;   &#x000A;    ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        for (PendingWrite write: writes) {&#x000A;            write.setFailure(new ClosedChannelException());&#x000A;        }    &#x000A;    }&#x000A; }&#x000A;</code></pre>
             
             <p>This works, but if this method is called often and with a not to small array of <code>PendingWrite</code>s you are in serious trouble. It will need to fill in the stacktrace for every <code>PendingWrite</code> you are about to fail!</p>
             
