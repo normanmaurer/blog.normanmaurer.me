@@ -132,7 +132,7 @@ As you can see here creating a new `Throwable` is by far the slowest way to hand
 
 
 ## Summary
-You should be aware of how expensive `Throwable.fillInStackTrace()` is and so think hard about how and when you create new instances of `Thrable`. This is also true for subtypes as those will call the super constructor.
+You should be aware of how expensive `Throwable.fillInStackTrace()` is and so think hard about how and when you create new instances of `Throwable`. This is also true for subtypes as those will call the super constructor.
 
 To make it short, nothing is for free so think about what you are doing before you run into performance problems later.
 Another good read on this topic is [the blog post of John Rose](https://blogs.oracle.com/jrose/entry/longjumps_considered_inexpensive).
