@@ -2,13 +2,169 @@
 <feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom">
   <id>http://normanmaurer.me/</id>
   <title>Normans rant's and more</title>
-  <updated>2013-11-08T15:03:00+01:00</updated>
+  <updated>2013-11-11T09:42:23+01:00</updated>
   <link href="http://normanmaurer.me/blog.atom" rel="self" type="application/atom+xml" />
   <link href="http://normanmaurer.me/" rel="alternate" type="text/html" />
   <entry>
+    <id>http://normanmaurer.me/blog/2013/11/09/The-hidden-performance-costs-of-instantiating-Throwables/</id>
+    <title>The hidden performance costs of instantiating Throwables</title>
+    <updated>2013-11-11T09:42:23+01:00</updated>
+    <published>2013-11-09T00:00:00+00:00</published>
+    <link href="http://normanmaurer.me/blog/2013/11/09/The-hidden-performance-costs-of-instantiating-Throwables/" rel="alternate" type="text/html" />
+    <author>
+      <name>normanmaurer</name>
+    </author>
+    <summary>
+      
+      Today it's time to make you aware of the performance penalty you may pay when using Throwable, Error, Exception and as a result give you a better idea how to avoid it. You may never have thought about it, but using those in a wrong fashion can affect the performance of your applications to a large degree.
+      
+      Alright, let us start from scratch. You may have heard that you should only use Exception / Throwable / Error for exceptional situations (something that is not the norm and signals unexpected behaviour). This is actually a good advice, but even if you follow...
+    </summary>
+    <content type="html">
+      
+      &lt;p&gt;Today it's time to make you aware of the performance penalty you may pay when using &lt;code&gt;Throwable&lt;/code&gt;, &lt;code&gt;Error&lt;/code&gt;, &lt;code&gt;Exception&lt;/code&gt; and as a result give you a better idea how to avoid it. You may never have thought about it, but using those in a wrong fashion can affect the performance of your applications to a large degree.&lt;/p&gt;
+      
+      &lt;p&gt;Alright, let us start from scratch. You may have heard that you should only use &lt;code&gt;Exception&lt;/code&gt; / &lt;code&gt;Throwable&lt;/code&gt; / &lt;code&gt;Error&lt;/code&gt; for exceptional situations (something that is not the norm and signals unexpected behaviour). This is actually a good advice, but even if you follow it (which I really hope you do) there may be situations where you need to throw one.&lt;/p&gt;
+      
+      &lt;p&gt;Throwing a &lt;code&gt;Throwable&lt;/code&gt; (or one of it's subtypes) is not a big deal. Well it's not for free, but still not the main cause for peformance issues. The real issue comes up when you create the object itself.&lt;/p&gt;
+      
+      &lt;blockquote&gt;
+        &lt;p&gt;Huh?&lt;/p&gt;
+      &lt;/blockquote&gt;
+      
+      &lt;p&gt;So why is creating a &lt;code&gt;Throwable&lt;/code&gt; so expensive? Isn't it just a simple light-weight POJO? Simple yes, but certainly not light-weight! &lt;/p&gt;
+      
+      &lt;p&gt;It's because usally it will call &lt;code&gt;Throwable.fillInStackTrace()&lt;/code&gt;, which needs to look down the stack and put it in the newly created &lt;code&gt;Throwable&lt;/code&gt;. This can affect the performance of your application to a large degree if you create a lot of them.&lt;/p&gt;
+      
+      &lt;p&gt;&lt;strong&gt;But what to do about this?&lt;/strong&gt;&lt;/p&gt;
+      
+      &lt;p&gt;There are a few techniques you can use to improve the performance. Let's have a deeper look into them now.&lt;/p&gt;
+      
+      &lt;h2 id=&quot;lazy-create-a-throwable-and-reuse&quot;&gt;Lazy create a Throwable and reuse&lt;/h2&gt;
+      &lt;p&gt;There are some situations where you would like to use the same &lt;code&gt;Throwablei&lt;/code&gt; multiple times. In this case you can lazily create and then reuse it. This way you eliminate a lot of the initial overhead. &lt;/p&gt;
+      
+      &lt;p&gt;To make things more clear let's have a look at some real-world example. In this example we assume that we have a list of pending writes which are all failed because the underlying &lt;code&gt;Channel&lt;/code&gt; was closed. &lt;/p&gt;
+      
+      &lt;p&gt;The pending writes are represented by the &lt;code&gt;PendingWrite&lt;/code&gt; interface as shown below.&lt;/p&gt;
+      
+      &lt;pre&gt;&lt;code&gt;public interface PendingWrite {
+          void setSuccess();
+          void setFailure(Throwable cause);     }
+      &lt;/code&gt;&lt;/pre&gt;
+      
+      &lt;p&gt;We have a &lt;code&gt;Writer&lt;/code&gt; class which will need to fail all &lt;code&gt;PendingWrite&lt;/code&gt; instances with a &lt;code&gt;ClosedChannelException&lt;/code&gt;. You may be tempted to implement it like this:&lt;/p&gt;
+      
+      &lt;pre&gt;&lt;code&gt;public class Writer {
+         
+          ....
+      
+          private void failPendingWrites(PendingWrite... writes) {
+              for (PendingWrite write: writes) {
+                  write.setFailure(new ClosedChannelException();
+              }    
+          }
+       }
+      &lt;/code&gt;&lt;/pre&gt;
+      
+      &lt;p&gt;This works, but if this method is called often and with a not to small array of &lt;code&gt;PendingWrite&lt;/code&gt;s you are in serious trouble. It will need to fill in the stacktrace for every &lt;code&gt;PendingWrite&lt;/code&gt; you are about to fail!&lt;/p&gt;
+      
+      &lt;p&gt;This is not only very wasteful but also something that is easy to optimize, so let's bring it on…&lt;/p&gt;
+      
+      &lt;p&gt;The key is to lazy create the &lt;code&gt;ClosedChannelException&lt;/code&gt; and reuse it for each &lt;code&gt;PendingWrite&lt;/code&gt; that needs to get failed. And doing so will even result in the correct stacktrace to be filled in… &lt;strong&gt;JackPot!&lt;/strong&gt;&lt;/p&gt;
+      
+      &lt;p&gt;So fixing this is as easy as rewriting the &lt;code&gt;failPendingWrites(...)&lt;/code&gt; method as shown here:&lt;/p&gt;
+      
+      &lt;pre&gt;&lt;code&gt;public class Writer {
+         ....
+      
+          private void failPendingWrites(PendingWrite... writes) {
+              if (writes.length == 0) {
+                  return;
+              }
+              ClosedChannelException error = new ClosedChannelException();
+              for (PendingWrite write: writes) {
+                  write.setFailure(error);
+              }
+          }
+       }
+      &lt;/code&gt;&lt;/pre&gt;
+      
+      &lt;p&gt;Notice we lazily create the &lt;code&gt;ClosedChannelException&lt;/code&gt; only if needed (if we have something to fail) and reuse the same instance for all the &lt;code&gt;PendingWrite&lt;/code&gt;s in the array. This will dramatically cut down the overhead, but you can reduce it even more with some tradeoff which I will explain next…&lt;/p&gt;
+      
+      &lt;h2 id=&quot;use-static-throwable-with-no-stacktrace-at-all&quot;&gt;Use static Throwable with no stacktrace at all&lt;/h2&gt;
+      &lt;p&gt;Sometimes you may not need a stacktrace at all as the &lt;code&gt;Throwable&lt;/code&gt; itself is enough information for what's going on. In this case, you are able to just use a static &lt;code&gt;Throwable&lt;/code&gt; and reuse it.&lt;/p&gt;
+      
+      &lt;p&gt;What you should remember in this case is to set the stacktrace to an empty array to not have some &quot;wrong&quot; stacktrace show up, and so cause a lot of headache when debugging.&lt;/p&gt;
+      
+      &lt;p&gt;Let us see how this fit in again in our &lt;code&gt;Writer&lt;/code&gt; class:&lt;/p&gt;
+      
+      &lt;pre&gt;&lt;code&gt;public class Writer {
+          private static final ClosedChannelException CLOSED_CHANNEL_EXCEPTION = new ClosedChannelException();
+          static {
+              CLOSED_CHANNEL_EXCEPTION.setStackTrace(new StackTraceElement[0]);
+          }
+         ....
+      
+          private void failPendingWrites(PendingWrite... writes) {
+              for (PendingWrite write: writes) {
+                  write.setFailure(CLOSED_CHANNEL_EXCEPTION);
+              }
+          }
+       }
+      &lt;/code&gt;&lt;/pre&gt;
+      
+      &lt;p&gt;But where is this useful? &lt;/p&gt;
+      
+      &lt;p&gt;For example in a network application a closed &lt;code&gt;Channel&lt;/code&gt; is not a really exceptional state anyway. So this may be a good fit in this case. In fact we do something similar in &lt;a href=&quot;http://netty.io&quot;&gt;Netty&lt;/a&gt; for exactly this case.&lt;/p&gt;
+      
+      &lt;p&gt;&lt;strong&gt;Caution: only do this if you are sure you know what you are doing!&lt;/strong&gt;&lt;/p&gt;
+      
+      &lt;h2 id=&quot;benchmarks&quot;&gt;Benchmarks&lt;/h2&gt;
+      &lt;p&gt;Now with all the claims it's time to actually proof them. For this I wrote a microbenchmark using &lt;a href=&quot;http://openjdk.java.net/projects/code-tools/jmh/&quot;&gt;JMH&lt;/a&gt;. &lt;/p&gt;
+      
+      &lt;p&gt;You can find the source code of the benchmark in the &lt;a href=&quot;https://github.com/normanmaurer/jmh-benchmarks/tree/master/src/main/java/me/normanmaurer/benchmarks&quot;&gt;github repository&lt;/a&gt;.
+      As there is no JMH version in any public maven repository yet I just bundled a SNAPSHOT version of it in the repository. As this is just a SNAPSHOT it may get out of date at some point in time…. Anyway this is good enough for us to run a benchmark and should be quite simple to be updated if needed.&lt;/p&gt;
+      
+      &lt;p&gt;This benchmark was run with:&lt;/p&gt;
+      
+      &lt;pre&gt;&lt;code&gt;# git clone https://github.com/normanmaurer/jmh-benchmarks.git
+      # cd jmh-benchmarks
+      ➜  jmh-benchmarks git:(master) ✗ mvn clean package
+      ➜  jmh-benchmarks git:(master) ✗ java -jar target/microbenchmarks.jar -w 10 -wi 3 -i 3 -of csv -o output.csv -odr &quot;.*ThrowableBenchmark.*&quot;
+      &lt;/code&gt;&lt;/pre&gt;
+      
+      &lt;p&gt;This basically means:&lt;/p&gt;
+      
+      &lt;ul&gt;
+        &lt;li&gt;Clone the code&lt;/li&gt;
+        &lt;li&gt;Build it the code&lt;/li&gt;
+        &lt;li&gt;Run a warmup for 10 seconds&lt;/li&gt;
+        &lt;li&gt;Run warmup 3 times&lt;/li&gt;
+        &lt;li&gt;Run each benchmark 3 times&lt;/li&gt;
+        &lt;li&gt;Generate output as csv&lt;/li&gt;
+      &lt;/ul&gt;
+      
+      &lt;p&gt;The benchmark result contains the ops/msec. Each op represents the call of &lt;code&gt;failPendingWrites(...)&lt;/code&gt; with and array of 10000 &lt;code&gt;PendingWrite&lt;/code&gt;s.&lt;/p&gt;
+      
+      &lt;p&gt;Enough said, time to look at the outcome:&lt;/p&gt;
+      
+      &lt;p&gt;&lt;img src=&quot;http://normanmaurer.me/blog/images/benchmark_throwable.png&quot; alt=&quot;Throwable&quot; title=&quot;Benchmark of different usage of Throwable&quot;&gt;&lt;/p&gt;
+      
+      &lt;p&gt;As you can see here creating a new &lt;code&gt;Throwable&lt;/code&gt; is by far the slowest way to handle it. Next one is to lazily create a &lt;code&gt;Throwable&lt;/code&gt; and reuse it for the whole method invocation. The winner is to reuse a static &lt;code&gt;Throwable&lt;/code&gt; with the drawback of not having any stacktrace. So I think it's fair to say using a lazy created &lt;code&gt;Throwable&lt;/code&gt; is the way to go in most cases. If you really need the last 1 % performance you could also make use of the static solution but will loose the stacktrace for debugging. So you see it's always a tradeoff.&lt;/p&gt;
+      
+      &lt;h2 id=&quot;summary&quot;&gt;Summary&lt;/h2&gt;
+      &lt;p&gt;You should be aware of how expensive &lt;code&gt;Throwable.fillInStackTrace()&lt;/code&gt; is and so think hard about how and when you create new instances of &lt;code&gt;Thrable&lt;/code&gt;. This is also true for subtypes as those will call the super constructor.&lt;/p&gt;
+      
+      &lt;p&gt;To make it short, nothing is for free so think about what you are doing before you run into performance problems later.
+      Another good read on this topic is &lt;a href=&quot;https://blogs.oracle.com/jrose/entry/longjumps_considered_inexpensive&quot;&gt;the blog post of John Rose&lt;/a&gt;.&lt;/p&gt;
+      
+      &lt;p&gt;Thanks again to &lt;a href=&quot;https://twitter.com/nitsanw&quot;&gt;Nitsan Wakart&lt;/a&gt; and &lt;a href=&quot;https://twitter.com/daschl&quot;&gt;Michael Nitschinger&lt;/a&gt; for the review!&lt;/p&gt;
+    </content>
+  </entry>
+  <entry>
     <id>http://normanmaurer.me/blog/2013/10/28/Lesser-known-concurrent-classes-Part-1/</id>
     <title>Lesser known concurrent classes - Atomic*FieldUpdater</title>
-    <updated>2013-11-08T15:03:00+01:00</updated>
+    <updated>2013-11-08T19:22:55+01:00</updated>
     <published>2013-10-28T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2013/10/28/Lesser-known-concurrent-classes-Part-1/" rel="alternate" type="text/html" />
     <author>
