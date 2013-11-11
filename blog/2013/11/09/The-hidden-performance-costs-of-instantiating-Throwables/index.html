@@ -141,7 +141,7 @@
             <p>As you can see here creating a new <code>Throwable</code> is by far the slowest way to handle it. Next one is to lazily create a <code>Throwable</code> and reuse it for the whole method invocation. The winner is to reuse a static <code>Throwable</code> with the drawback of not having any stacktrace. So I think it's fair to say using a lazy created <code>Throwable</code> is the way to go in most cases. If you really need the last 1 % performance you could also make use of the static solution but will loose the stacktrace for debugging. So you see it's always a tradeoff.</p>
             
             <h2 id="summary">Summary</h2>
-            <p>You should be aware of how expensive <code>Throwable.fillInStackTrace()</code> is and so think hard about how and when you create new instances of <code>Thrable</code>. This is also true for subtypes as those will call the super constructor.</p>
+            <p>You should be aware of how expensive <code>Throwable.fillInStackTrace()</code> is and so think hard about how and when you create new instances of <code>Throwable</code>. This is also true for subtypes as those will call the super constructor.</p>
             
             <p>To make it short, nothing is for free so think about what you are doing before you run into performance problems later.
             Another good read on this topic is <a href="https://blogs.oracle.com/jrose/entry/longjumps_considered_inexpensive">the blog post of John Rose</a>.</p>
