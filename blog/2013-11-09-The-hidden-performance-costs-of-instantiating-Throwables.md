@@ -21,7 +21,7 @@ __But what to do about this?__
 There are a few techniques you can use to improve the performance. Let's have a deeper look into them now.
 
 ## Lazy create a Throwable and reuse
-There are some situations where you would like to use the same `Throwablei` multiple times. In this case you can lazily create and then reuse it. This way you eliminate a lot of the initial overhead. 
+There are some situations where you would like to use the same `Throwable` multiple times. In this case you can lazily create and then reuse it. This way you eliminate a lot of the initial overhead. 
 
 To make things more clear let's have a look at some real-world example. In this example we assume that we have a list of pending writes which are all failed because the underlying `Channel` was closed. 
 
