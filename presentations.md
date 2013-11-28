@@ -12,4 +12,5 @@ Here you find various of those. This list is currently not complete but I will t
   * __High performance networking on the JVM - Lessons learned__, JAX, May 2013:  [Slides](/presentations/2013-jax-networking-on-jvm)
   * __Vert.x - The next-gen Polyglot Asynchronous Platform__, Eclipsecon EU, Nov 2013:  [Slides](/presentations/2013-eclipsecon-eu-vertx)
   * __Netty 4 - Network - Application development the easy way__, W-JAX, Nov 2013:  [Slides](/presentations/2013-wjax-netty)
+  * __Vert.x - The next-gen Polyglot Asynchronous Platform__, JUG Frankfurt, Oct 2013:  [Slides](/presentations/2013-jugffm-vertx)
 
