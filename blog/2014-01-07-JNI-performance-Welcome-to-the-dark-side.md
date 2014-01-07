@@ -83,10 +83,10 @@ void JNI_OnUnload(JavaVM *vm, void *reserved) {
     }
 }
 </pre>
-Please note the explicit free of the global reference by calling `DeleteGlobalRef(...)`. This is needed as otherwise you create a memory leak as the GC is not allowed to release it. So remember this!
+Please note the explicit free of the global reference by calling `DeleteGlobalRef(...). This is needed as otherwise you create a memory leak as the GC is not allowed to release it. So remember this!
 
 
-## Crossing the border
+## Crossing the borders
 Typically you have some native code which calls from java into your C code, but there are sometimes also situations where you need to access some data from your C (JNI) code that is stored in the java object itself. For this you can call "back" into java from within the C code. One problem that is often overlooked is the performance hit it takes to cross the border. This is especially true when you call back from C into java.  
 
 The same problem hit me hard when I implemented the writev method of my native transport. This method basically takes an array of `ByteBuffer` objects and tries to write them via a gathering writes for performances reasons. What I did first was to implement it by first lookup the `ByteBuffer.limit()` and `ByteBuffer.position()` methods and cached their `jmethodID's like explained before. This provided me with this solution:
@@ -112,7 +112,7 @@ JNIEXPORT jlong JNICALL Java_io_netty_jni_internal_Native_writev(JNIEnv * env, j
 }
 </pre>
 
-After the first benchmark I was wondering why the speed was not matching my expections as I was only able to get about _540k req/sec_ with the following command and my webserver implementation: 
+After the first benchmark I was wondering why the speed was not matching my expections as I was only able to get about _530k req/sec_ with the following command against my webserver implementation: 
 
     # wrk-pipeline -H 'Host: localhost' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Connection: keep-alive' -d 120 -c 256 -t 8 --pipeline 16 http://127.0.0.1:8080/plaintext
 
@@ -141,14 +141,23 @@ JNIEXPORT jlong JNICALL Java_io_netty_jni_internal_Native_writev(JNIEnv * env, j
 }
 </pre>
 
-Changing the code resulted in a boost of ca 40k req/sec. Running the same command now showed about throughput of ca. _580k req/sec_! 
+Changing the code resulted in a boost of ca. 63k req/sec by show a result of ca. _593k req/sec_! Not bad at all... 
+
+Each benchmark iteration was started by a warmup of 5 minutes followed by 3 runs of 2 minutes to gather the actual data.
+
+The following graphs show the outcome in detail:
+
+![RequestsPerSecond](/blog/images/jni_request_sec.png "Requests per second")
+
+![TransferPerSecond](/blog/images/jni_transfer_sec.png "Transfer (MB) per second")
+
 
 Lessons learned here are that crossing the border is quite expensive when you are pushing hard enough. The down-side of accessing the fields directly is that a change of the fields itself will break your code.  In the actually code itself (which I will blog about and release it) this is handled in a graceful way by fallback to using the methods if the fields are not found and logging a warning.
 
 
-## Release the right way
+## Releasing with care
 
-When using JNI you often have to convert from some of the various `j*Array instances to a pointer and release it again after you are done and so make sure all the changes are "synced" between the array you passed to the jni method and the pointer you used within the jni code. 
+When using JNI you often have to convert from some of the various `j*Array` instances to a pointer and release it again after you are done and so make sure all the changes are "synced" between the array you passed to the jni method and the pointer you used within the jni code. 
 When calling `Release*ArrayElements(...)` you have to specify a mode which is used to tell the JVM how it should handle the syncing of the array you passed in and the one used within your JNI code.
 
 Different modes are:
