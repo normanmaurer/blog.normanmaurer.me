@@ -83,7 +83,7 @@ void JNI_OnUnload(JavaVM *vm, void *reserved) {
     }
 }
 </pre>
-Please note the explicit free of the global reference by calling `DeleteGlobalRef(...). This is needed as otherwise you create a memory leak as the GC is not allowed to release it. So remember this!
+Please note the explicit free of the global reference by calling `DeleteGlobalRef(...)`. This is needed as otherwise you create a memory leak as the GC is not allowed to release it. So remember this!
 
 
 ## Crossing the border
@@ -148,7 +148,7 @@ Lessons learned here are that crossing the border is quite expensive when you ar
 
 ## Release the right way
 
-When using JNI you often have to convert from some of the various `j*Array` instances to a pointer and release it again after you are done and so make sure all the changes are "synced" between the array you passed to the jni method and the pointer you used within the jni code. 
+When using JNI you often have to convert from some of the various `j*Array instances to a pointer and release it again after you are done and so make sure all the changes are "synced" between the array you passed to the jni method and the pointer you used within the jni code. 
 When calling `Release*ArrayElements(...)` you have to specify a mode which is used to tell the JVM how it should handle the syncing of the array you passed in and the one used within your JNI code.
 
 Different modes are:
