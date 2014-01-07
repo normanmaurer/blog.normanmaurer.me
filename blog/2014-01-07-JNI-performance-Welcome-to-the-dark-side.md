@@ -52,6 +52,7 @@ This way everytime you need to either access the field or the method you can jus
 Anyway there is a solution, which will allow you to also cache the `jclass` and so eliminate for the lookup if you need the `jclass` later. JNI provides special methods to "convert" a local reference to a global one which is guaranteered to not be GC'ed until it is explicitly removed. 
 
 For doing so you can use code similar to this:
+
 <pre class="syntax clang">
 jclass bufferCls;
 
@@ -143,7 +144,7 @@ Lessons learned here are that crossing the border is quite expensive when you ar
 
 ## Release the right way
 
-When using JNI you often have to convert from some of the various `j*Array` instances to a pointer and release it again after you are done and so make sure all the changes are "synced" between the array you passed to the jni method and the pointer you used within the jni code. 
+When using JNI you often have to convert from some of the various `j*Array instances to a pointer and release it again after you are done and so make sure all the changes are "synced" between the array you passed to the jni method and the pointer you used within the jni code. 
 When calling `Release*ArrayElements(...)` you have to specify a mode which is used to tell the JVM how it should handle the syncing of the array you passed in and the one used within your JNI code.
 
 Different modes are:
