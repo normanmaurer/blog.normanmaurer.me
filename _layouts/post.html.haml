@@ -29,15 +29,3 @@ layout: base
 
 .comments
   = page.disqus_comments 
-
-:javascript
-  $( function () {
-     var syntax_root = "/javascripts/jquery-syntax/"
-
-     if (!$.browser.msie && $( '.syntax' ).length) {
-       $.getScript( syntax_root + "jquery.syntax.min.js", function () {
-         $.syntax( {root: syntax_root,
-                   blockLayout: 'plain'} )
-       } )
-     }
-   } )
