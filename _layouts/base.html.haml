@@ -35,15 +35,8 @@
         %p &copy; Norman Maurer #{Date.today.year}
       %script{ :type=>'text/javascript', :src=>'//cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js' }
       %script{ :type=>'text/javascript', :src=>"#{site.base_url}/javascripts/bootstrap-collapse.js" }
+      %script{ :type=>'text/javascript', :src=>"#{site.base_url}/javascripts/jquery-syntax/jquery.syntax.min.js" }
       :javascript
-        $( function () {
-          var syntax_root = "/javascripts/jquery-syntax/"
-          if (!$.browser.msie && $( '.syntax' ).length) {
-            $.getScript( syntax_root + "jquery.syntax.min.js", function () {
-              $.syntax( {root: syntax_root,
-                   blockLayout: 'plain'} )
-            } )
-          }
-        } )
+        $($.syntax({blockLayout: 'plain'}))
 - if site.google_analytics
   = google_analytics_async
