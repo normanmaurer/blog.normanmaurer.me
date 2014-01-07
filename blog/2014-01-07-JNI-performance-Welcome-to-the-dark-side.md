@@ -29,23 +29,25 @@ Lucky enough there is a solution for it a.k.a caching.
 
 Caching of `jmethodID` and `jfieldID` is straight forward. All you need to do is lookup the `jmethodID` or `jfieldID` and store it in a global field.
 
-    jmethodID limitMethodId;
-    jfieldID limitFieldId;
+<pre class="syntax clang">
+jmethodID limitMethodId;
+jfieldID limitFieldId;
 
-    // Is automatically called once the native code is loaded via System.loadLibary(...);
-    jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-        JNIEnv* env;
-        if ((*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6) != JNI_OK) {
-            return JNI_ERR;
-        } else {
-            jclass cls = (*env)->FindClass("java/nio/Buffer");
-            // Get the id of the Buffer.limit() method.
-            limitMethodId = (*env)->GetMethodID(env, cls, "limit", "()I");
+// Is automatically called once the native code is loaded via System.loadLibary(...);
+jint JNI_OnLoad(JavaVM* vm, void* reserved) {
+    JNIEnv* env;
+    if ((*vm)->GetEnv(vm, (void **) &env, JNI_VERSION_1_6) != JNI_OK) {
+        return JNI_ERR;
+    } else {
+        jclass cls = (*env)->FindClass("java/nio/Buffer");
+        // Get the id of the Buffer.limit() method.
+        limitMethodId = (*env)->GetMethodID(env, cls, "limit", "()I");
 
-            // Get int limit field of Buffer
-            limitFieldId = (*env)->GetFieldID(env, cls, "limit", "I");
-        }
+        // Get int limit field of Buffer
+        limitFieldId = (*env)->GetFieldID(env, cls, "limit", "I");
     }
+}
+</pre>
 
 This way everytime you need to either access the field or the method you can just reuse the global `jmethodID` and `jfieldID`. This is safe even from different threads. You may be tempted to do the same with `jclass` and it may work at the first glance, but bombs out at some point later. This is because jclass is handled as a local reference and so can be recycled by the GC. 
 
@@ -89,25 +91,26 @@ Typically you have some native code which calls from java into your C code, but 
 
 The same problem hit me hard when I implemented the writev method of my native transport. This method basically takes an array of `ByteBuffer` objects and tries to write them via a gathering writes for performances reasons. What I did first was to implement it by first lookup the `ByteBuffer.limit()` and `ByteBuffer.position()` methods and cached their `jmethodID's like explained before. This provided me with this solution:
 
-    JNIEXPORT jlong JNICALL Java_io_netty_jni_internal_Native_writev(JNIEnv * env, jclass clazz, jint fd, jobjectArray buffers, jint offset, jint length) {
-        struct iovec iov[length];
-        int i;
-        int iovidx = 0;
-        for (i = offset; i < length; i++) {
-            jobject bufObj = (*env)->GetObjectArrayElement(env, buffers, i);
-            jint pos = (*env)->CallIntMethod(env, bufObj, posId, NULL);
+<pre class="syntax clang">
+JNIEXPORT jlong JNICALL Java_io_netty_jni_internal_Native_writev(JNIEnv * env, jclass clazz, jint fd, jobjectArray buffers, jint offset, jint length) {
+    struct iovec iov[length];
+    int i;
+    int iovidx = 0;
+    for (i = offset; i < length; i++) {
+        jobject bufObj = (*env)->GetObjectArrayElement(env, buffers, i);
+        jint pos = (*env)->CallIntMethod(env, bufObj, posId, NULL);
 
-            jint limit = (*env)->CallIntMethod(env, bufObj, limitId, NULL);
-            void *buffer = (*env)->GetDirectBufferAddress(env, bufObj);
-            iov[iovidx].iov_base = buffer + pos;
-            iov[iovidx].iov_len = limit - pos;
-            iovidx++;
-        }
-        ...
-        // code to write to the fd 
-        ...
-
+        jint limit = (*env)->CallIntMethod(env, bufObj, limitId, NULL);
+        void *buffer = (*env)->GetDirectBufferAddress(env, bufObj);
+        iov[iovidx].iov_base = buffer + pos;
+        iov[iovidx].iov_len = limit - pos;
+        iovidx++;
     }
+    ...
+    // code to write to the fd 
+    ...
+}
+</pre>
 
 After the first benchmark I was wondering why the speed was not matching my expections as I was only able to get about _540k req/sec_ with the following command and my webserver implementation: 
 
@@ -117,25 +120,26 @@ After the first benchmark I was wondering why the speed was not matching my expe
 After more thinking suspected that calling back into java code so often during the loop was the cause of the problems. So I checked the openjdk source code to see how the actual fields are named that holds the limit and position values.
 Knowing those allowed me to adjust my code to this:
 
-    JNIEXPORT jlong JNICALL Java_io_netty_jni_internal_Native_writev(JNIEnv * env, jclass clazz, jint fd, jobjectArray buffers, jint offset, jint length) {
-        struct iovec iov[length];
-        int i;
-        int iovidx = 0;
-        for (i = offset; i < length; i++) {
-            jobject bufObj = (*env)->GetObjectArrayElement(env, buffers, i);
-            jint pos = (*env)->GetIntField(env, bufObj, posFieldId);
+<pre class="syntax clang">
+JNIEXPORT jlong JNICALL Java_io_netty_jni_internal_Native_writev(JNIEnv * env, jclass clazz, jint fd, jobjectArray buffers, jint offset, jint length) {
+    struct iovec iov[length];
+    int i;
+    int iovidx = 0;
+    for (i = offset; i < length; i++) {
+        jobject bufObj = (*env)->GetObjectArrayElement(env, buffers, i);
+        jint pos = (*env)->GetIntField(env, bufObj, posFieldId);
 
-            jint limit = (*env)->GetIntField(env, bufObj, limitFieldId);
-            void *buffer = (*env)->GetDirectBufferAddress(env, bufObj);
-            iov[iovidx].iov_base = buffer + pos;
-            iov[iovidx].iov_len = limit - pos;
-            iovidx++;
-        }
-        ...
-        // code to write to the fd 
-        ...
-
+        jint limit = (*env)->GetIntField(env, bufObj, limitFieldId);
+        void *buffer = (*env)->GetDirectBufferAddress(env, bufObj);
+        iov[iovidx].iov_base = buffer + pos;
+        iov[iovidx].iov_len = limit - pos;
+        iovidx++;
     }
+    ...
+     // code to write to the fd 
+     ...
+}
+</pre>
 
 Changing the code resulted in a boost of ca 40k req/sec. Running the same command now showed about throughput of ca. _580k req/sec_! 
 
@@ -144,7 +148,7 @@ Lessons learned here are that crossing the border is quite expensive when you ar
 
 ## Release the right way
 
-When using JNI you often have to convert from some of the various `j*Array instances to a pointer and release it again after you are done and so make sure all the changes are "synced" between the array you passed to the jni method and the pointer you used within the jni code. 
+When using JNI you often have to convert from some of the various `j*Array` instances to a pointer and release it again after you are done and so make sure all the changes are "synced" between the array you passed to the jni method and the pointer you used within the jni code. 
 When calling `Release*ArrayElements(...)` you have to specify a mode which is used to tell the JVM how it should handle the syncing of the array you passed in and the one used within your JNI code.
 
 Different modes are:
@@ -171,39 +175,41 @@ Mainly because using 0 will trigger an array copy all the time while you may not
 
 The following code modifies the native array and then check if it needs to copy the data back or not and setting the mode for it.
 
-    JNIEXPORT jint JNICALL Java_io_netty_jni_internal_Native_epollWait(JNIEnv * env, jclass clazz, jint efd, jlongArray events, jint timeout) {
-        int len = (*env)->GetArrayLength(env, events);
-        struct epoll_event ev[len];
-        int ready;
+<pre class="syntax clang">
+JNIEXPORT jint JNICALL Java_io_netty_jni_internal_Native_epollWait(JNIEnv * env, jclass clazz, jint efd, jlongArray events, jint timeout) {
+    int len = (*env)->GetArrayLength(env, events);
+    struct epoll_event ev[len];
+    int ready;
 
-        // blocks until ev is filled and return if ready < 1.
-        ....
+    // blocks until ev is filled and return if ready < 1.
+    ....
 
-        jboolean isCopy;
+    jboolean isCopy;
 
-        jlong *elements = (*env)->GetLongArrayElements(env, events, &isCopy);
-        if (elements == NULL) {
-            // No memory left ?!?!?
-            throwOutOfMemoryError(env, "Can't allocate memory");
-            return return -1;
-        }
-        int i;
-        for (i = 0; i < ready; i++) {
-            elements[i] = ev[i].data.u64;
-        }
-        
-        jint mode;
-        // release again to prevent memory leak
-        if (isCopy) {
-            mode = 0;
-        } else {
-            // was just pinned so use JNI_ABORT to eliminate not needed copy.
-            mode = JNI_ABORT;
-        }
-        (*env)->ReleaseLongArrayElements(env, events, elements, mode);
- 
-        return ready;
+    jlong *elements = (*env)->GetLongArrayElements(env, events, &isCopy);
+    if (elements == NULL) {
+        // No memory left ?!?!?
+        throwOutOfMemoryError(env, "Can't allocate memory");
+        return return -1;
     }
+    int i;
+    for (i = 0; i < ready; i++) {
+        elements[i] = ev[i].data.u64;
+    }
+        
+    jint mode;
+    // release again to prevent memory leak
+    if (isCopy) {
+        mode = 0;
+    } else {
+        // was just pinned so use JNI_ABORT to eliminate not needed copy.
+        mode = JNI_ABORT;
+    }
+    (*env)->ReleaseLongArrayElements(env, events, elements, mode);
+ 
+    return ready;
+}
+</pre>
 
 Doing the isCopy check may save you an array copy and so it's a good practice to always do it. There are more JNI methods that allow to specify a mode, for which this advice holds as well.
 
