@@ -223,7 +223,7 @@ Doing the isCopy check may save you an array copy, so it's a good practice. Ther
 ## Summary
 Hopefully, this post gave you some insight about JNI and the performance impact some operations have. The next post will cover the native transport for netty in detail, and give you some concrete numbers in terms of performance. So stay tuned ....
 
-Thanks again to [Nitsan Wakart](https://twitter.com/nitsanw) and [Michael Nitschinger](https://twitter.com/daschl) for the review!
+Thanks again to [Nitsan Wakart](https://twitter.com/nitsanw) , [Michael Nitschinger](https://twitter.com/daschl) and [Jim Crossley](https://twitter.com/jcrossley3) for the review!
 
 ## Usefull JNI Links
 
