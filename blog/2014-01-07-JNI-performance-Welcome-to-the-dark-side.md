@@ -1,6 +1,6 @@
 ---
 layout: post
-title: 'JNI performance - Welcome to the dark side'
+title: 'JNI Performance - Welcome to the dark side'
 author: normanmaurer
 ---
 
@@ -143,7 +143,7 @@ JNIEXPORT jlong JNICALL Java_io_netty_jni_internal_Native_writev(JNIEnv * env, j
 
 Changing the code resulted in a boost of ca. 63k req/sec by show a result of ca. _593k req/sec_! Not bad at all... 
 
-Each benchmark iteration was started by a warmup of 5 minutes followed by 3 runs of 2 minutes to gather the actual data.
+Each benchmark iteration was started by a warmup of 20 minutes followed by 3 runs of 2 minutes to gather the actual data.
 
 The following graphs show the outcome in detail:
 
