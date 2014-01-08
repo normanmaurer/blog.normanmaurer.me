@@ -23,11 +23,22 @@
             %li
               %a{ :href=> site.posts[0].url } Blog
             %li
+              %a{ :href=> "#{site.base_url}/presentations" } Presentations
+            %li
               %a{ :href=>"#{site.base_url}/blog.atom" }
                 %img{ :src=>'/images/feed-icon-14x14.png'}
             %li
-              %a{ :href=> "#{site.base_url}/presentations" } Presentations
-    .container
+              %a{:href=>"https://twitter.com/normanmaurer" } 
+                %img{:src=>"/images/twitter-bird-light-bgs.png", :style =>"width: 24px;"}
+            %li
+              %a{:href=>"https://github.com/normanmaurer" } 
+                %img{:src=>"/images/GitHub-Mark-32px.png", :style =>"width: 18px;"}
+            %li
+              %a{:href=>"http://www.linkedin.com/in/normanmaurer" } 
+                %img{:src=>"/images/InBug-30px-R.png", :style =>"width: 24px;"}
+            %li
+              %a{:href=>"https://speakerdeck.com/normanmaurer" } 
+                %img{:src=>"/images/speakerdeck.png", :style =>"width: 24px;"}
     .container
       ~ content
       %hr

@@ -2,26 +2,25 @@
 layout: base
 ---
 .hero-unit
-  %h1 Welcome!
-  %p Programming, Rants and more.
+  %h2{:style => "height: 120px;text-align: right;color: white"} The Thoughts of Norman Maurer
+
 .row
-  .span3
-    %h2 Blog
-    %p Here you find my blog on which I talk mostly about topics related to Java, JVM and performance.
-    %p
-      %a.btn{ :href=>'/blog/' } Gimme the blog posts&raquo; 
-  .span3
-    %h2 Projects 
-    %p I'm involved in multiple opensource projects. If you want to find out more about them and my work there, this is the section you want check out.
-    %p
-      %a.btn{ :href=>'/projects/' } Gimme the info, now!&raquo; 
-  .span3
-    %h2 Presentations
-    %p I'm regulary giving talks which are related to the Projects I'm involved in. Here you can find those...
-    %p
-      %a.btn{ :href=>'/presentations/' } I love presentations!&raquo; 
-  .span3
-    %h2 About Me 
-    %p Want to learn more about me... 
-    %p
-      %a.btn{ :href=>'/aboutme/' } Who is this guy?&raquo; 
+  .span1
+  .span10
+    .row 
+      .span10
+      %p
+      Norman Maurer is currently employed by  
+      %a{ :href=>'http://www.redhat.com'} Red Hat
+      as Principal Software Engineer where he spend its time to work on high-performing Network Frameworks on the JVM. He is one of the core-developers of Netty / Vert.x and Member of the Apache Software Foundation. Beside this he is the Author of "Netty in Action" and is interested in everything related to performance...
+      %p
+    .row
+      .span2
+        %img{ :src=>'/images/maurer_cover150.jpg'} 
+      .span8
+        %h4 Netty in Action 
+        %p 
+        Netty in Action introduces the Netty framework and shows you how to incorporate it into your Java network applications. You'll learn to write highly-scalable applications without the need to dive into the low-level non-blocking APIs at the core of Java. You'll learn how to think in an asynchronous way as you work through numerous hands-on examples. You'll follow numerous examples that show you how to use Netty while you master the best practices of large-scale network apps.
+        %p
+        %a.btn{ :href=>'http://manning.com/maurer/'} Buy it online
+  .span1
