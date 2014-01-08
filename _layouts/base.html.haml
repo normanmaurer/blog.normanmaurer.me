@@ -27,9 +27,6 @@
             %li
               %a{ :href=> "#{site.base_url}/projects" } OpenSource Projects
             %li
-              %a{ :href=>"#{site.base_url}/blog.atom" }
-                %img{ :src=>'/images/feed-icon-14x14.png'}
-            %li
               %a{:href=>"https://twitter.com/normanmaurer" } 
                 %img{:src=>"/images/twitter-bird-light-bgs.png", :style =>"width: 24px;"}
             %li
@@ -45,7 +42,11 @@
       ~ content
       %hr
       %footer
-        %p &copy; Norman Maurer 2013 - #{Date.today.year}
+        .row
+          .span
+            %p &copy; Norman Maurer 2013 - #{Date.today.year}
+          .span 
+            %a{ :href=>"#{site.base_url}/blog.atom"} Subscribe RSS Feed
       %script{ :type=>'text/javascript', :src=>'//cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js' }
       %script{ :type=>'text/javascript', :src=>"#{site.base_url}/javascripts/bootstrap-collapse.js" }
       %script{ :type=>'text/javascript', :src=>"#{site.base_url}/javascripts/jquery-syntax/jquery.syntax.min.js" }
