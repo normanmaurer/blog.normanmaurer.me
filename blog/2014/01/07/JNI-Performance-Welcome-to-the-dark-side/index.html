@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>The thoughts of Norman Maurer and more</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <style>
+      body {
+        padding-top: 60px;
+      }
+    </style>
+    <link href="http://normanmaurer.me/stylesheets/styles.css" rel="stylesheet" type="text/css">
+    <link href="/blog.atom" rel="alternate" type="application/atom+xml">
+    <!--[if lt IE 9]>
+      <script src="//html5shim.googlecode.com/svn/trunk/html5.js" type="text/javascript"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="http://normanmaurer.me"></a>
+          <ul class="nav">
+            <li>
+              <a href="http://normanmaurer.me">Home</a>
+            </li>
+            <li>
+              <a href="/blog/2014/01/07/JNI-Performance-Welcome-to-the-dark-side/">Blog</a>
+            </li>
+            <li>
+              <a href="http://normanmaurer.me/presentations">Presentations</a>
+            </li>
+            <li>
+              <a href="http://normanmaurer.me/projects">OpenSource Projects</a>
+            </li>
+            <li>
+              <a href="http://normanmaurer.me/blog.atom">
+                <img src="/images/feed-icon-14x14.png">
+              </a>
+            </li>
+            <li>
+              <a href="https://twitter.com/normanmaurer">
+                <img src="/images/twitter-bird-light-bgs.png" style="width: 24px;">
+              </a>
+            </li>
+            <li>
+              <a href="https://github.com/normanmaurer">
+                <img src="/images/GitHub-Mark-32px.png" style="width: 18px;">
+              </a>
+            </li>
+            <li>
+              <a href="http://www.linkedin.com/in/normanmaurer">
+                <img src="/images/InBug-30px-R.png" style="width: 24px;">
+              </a>
+            </li>
+            <li>
+              <a href="https://speakerdeck.com/normanmaurer">
+                <img src="/images/speakerdeck.png" style="width: 24px;">
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+      <div id="content">
+        <article>
+          <header class="page-header">
+            <h1 class="title">
+              <a>JNI Performance - Welcome to the dark side</a>
+            </h1>
+            <div class="meta">
+              <time>January  7, 2014</time>
+            </div>
+          </header>
+          <div class="content">
+            
+            <p>During the Holidays I finally found the mood to take on a task that has been on the to-do list for too long (I was talking about it since 2012 - anyway better late then never). The plan was to implement a native <a href="http://netty.io">netty</a> transport which doesn't use <code>java.nio</code>, but directly makes use of C and JNI and uses edge-triggered <a href="http://man7.org/linux/man-pages/man7/epoll.7.html">epoll</a>, which is only available on linux. </p>
+            
+            <blockquote>
+              <p>Seriously ?</p>
+            </blockquote>
+            
+            <p>Yeah&#8230; The idea was to write a transport implementation that outperforms what ships with <code>java.nio</code> by making optimal use of the Thread-Model that powers Netty and is optimized for linux. Also, I wanted to practice my C and JNI skills again, as they felt a bit rusty. This blog post will talk about some performance issues related to JNI and other pitfalls that I encountered while working on the transport.</p>
+            
+            <p>I will write up an extra post about the transport itself once it is opensourced, which will be in the next few weeks. In short, it outperforms the other netty transport which uses java.nio. This comes as no surprise as the provided one by java.nio must be more generic than what I needed for netty and linux.</p>
+            
+            <p>Let me welcome you to the dark side!</p>
+            
+            <p><img src="/blog/images/dark_side.jpg" alt="AtomicExample" title="Welcome to the dark side!" /></p>
+            
+            <p><a href="http://www.flickr.com/photos/isherwoodchris/7074633375/">Chris Isherwood</a></p>
+            
+            <p>There are a few techniques you can use to improve the performance. These sections will cover them&#8230; </p>
+            
+            <h2 id="caching-jmethodid-jfieldid-and-jclass">Caching jmethodID, jfieldID and jclass</h2>
+            <p>When you work with JNI you often need to either access a method of a java object (<code>jobject</code>) or a field which holds some value.
+            Also, you often need to get the class (jclass) to instantiate a new Object and return it from within your JNI call. All of this means you will need to make a "lookup" to get access to the needed <code>jmethodID</code>, <code>jfieldID</code> or <code>jclass</code>. But this doesn't come for free. Each lookup takes time and so affects performance if you are kicking the tires hard enough.</p>
+            
+            <p>Luckily enough, there is a solution: caching.</p>
+            
+            <p>Caching of <code>jmethodID</code> and <code>jfieldID</code> is straight forward. All you need to do is lookup the <code>jmethodID</code> or <code>jfieldID</code> and store it in a global field.</p>
+            
+            <pre class="syntax clang">&#x000A;jmethodID limitMethodId;&#x000A;jfieldID limitFieldId;&#x000A;&#x000A;// Is automatically called once the native code is loaded via System.loadLibary(...);&#x000A;jint JNI_OnLoad(JavaVM* vm, void* reserved) {&#x000A;    JNIEnv* env;&#x000A;    if ((*vm)-&gt;GetEnv(vm, (void **) &amp;env, JNI_VERSION_1_6) != JNI_OK) {&#x000A;        return JNI_ERR;&#x000A;    } else {&#x000A;        jclass cls = (*env)-&gt;FindClass("java/nio/Buffer");&#x000A;        // Get the id of the Buffer.limit() method.&#x000A;        limitMethodId = (*env)-&gt;GetMethodID(env, cls, "limit", "()I");&#x000A;&#x000A;        // Get int limit field of Buffer&#x000A;        limitFieldId = (*env)-&gt;GetFieldID(env, cls, "limit", "I");&#x000A;    }&#x000A;}</pre>
+            
+            <p>This way, every time you need to either access the field or the method you can just reuse the global <code>jmethodID</code> and <code>jfieldID</code>. This is safe even from different threads. You may be tempted to do the same with <code>jclass</code>, and it may work at first, but then bombs out later. This is because jclass is handled as a local reference and so can be recycled by the GC. </p>
+            
+            <p>There is a solution, however, which will allow you to cache the <code>jclass</code> and eliminate subsequent lookups. JNI provides special methods to "convert" a local reference to a global one which is guaranteered to not be GC'ed until it is explicitly removed. For example:</p>
+            
+            <pre class="syntax clang">&#x000A;jclass bufferCls;&#x000A;&#x000A;// Is automatically called once the native code is loaded via System.loadLibary(...);&#x000A;jint JNI_OnLoad(JavaVM* vm, void* reserved) {&#x000A;    JNIEnv* env;&#x000A;    if ((*vm)-&gt;GetEnv(vm, (void **) &amp;env, JNI_VERSION_1_6) != JNI_OK) {&#x000A;        return JNI_ERR;&#x000A;    } else {&#x000A;        jclass localBufferCls = (*env)-&gt;FindClass(env, "java/nio/ByteBuffer");&#x000A;        bufferCls = (jclass) (*env)-&gt;NewGlobalRef(env, localBufferCls);&#x000A;    }&#x000A;}&#x000A;&#x000A;// Is automatically called once the Classloader is destroyed&#x000A;void JNI_OnUnload(JavaVM *vm, void *reserved) {&#x000A;    JNIEnv* env;&#x000A;    if ((*vm)-&gt;GetEnv(vm, (void **) &amp;env, JNI_VERSION_1_6) != JNI_OK) {&#x000A;        // Something is wrong but nothing we can do about this :(&#x000A;        return;&#x000A;    } else {&#x000A;        // delete global references so the GC can collect them&#x000A;        if (bufferCls != NULL) {&#x000A;            (*env)-&gt;DeleteGlobalRef(env, bufferCls);&#x000A;        }&#x000A;    }&#x000A;}</pre>
+            <p>Please note the explicit free of the global reference by calling `DeleteGlobalRef(&#8230;). This is needed to prevent a memory leak as the GC is not allowed to release it. So remember this!</p>
+            
+            <h2 id="crossing-the-borders">Crossing the borders</h2>
+            <p>Typically, you have some native code which calls from java into your C code, but there are sometimes also situations where you need to access some data from your C (JNI) code that is stored in the java object itself. For this, you can call "back" into java from within the C code. One problem that is often overlooked is the performance hit it takes to cross the border. This is especially true when you call back from C into java.  </p>
+            
+            <p>The same problem hit me hard when I implemented the writev method of my native transport. This method basically takes an array of <code>ByteBuffer</code> objects and tries to write them via gathering writes for performances reasons. My first approach was to lookup the <code>ByteBuffer.limit()</code> and <code>ByteBuffer.position()</code> methods and cache their `jmethodID's as explained before. This yielded the following:</p>
+            
+            <pre class="syntax clang">&#x000A;JNIEXPORT jlong JNICALL Java_io_netty_jni_internal_Native_writev(JNIEnv * env, jclass clazz, jint fd, jobjectArray buffers, jint offset, jint length) {&#x000A;    struct iovec iov[length];&#x000A;    int i;&#x000A;    int iovidx = 0;&#x000A;    for (i = offset; i &lt; length; i++) {&#x000A;        jobject bufObj = (*env)-&gt;GetObjectArrayElement(env, buffers, i);&#x000A;        jint pos = (*env)-&gt;CallIntMethod(env, bufObj, posId, NULL);&#x000A;&#x000A;        jint limit = (*env)-&gt;CallIntMethod(env, bufObj, limitId, NULL);&#x000A;        void *buffer = (*env)-&gt;GetDirectBufferAddress(env, bufObj);&#x000A;        iov[iovidx].iov_base = buffer + pos;&#x000A;        iov[iovidx].iov_len = limit - pos;&#x000A;        iovidx++;&#x000A;    }&#x000A;    ...&#x000A;    // code to write to the fd &#x000A;    ...&#x000A;}</pre>
+            
+            <p>After the first benchmark, I was wondering why the speed was not matching my expections. I was only able to get about <em>530k req/sec</em> with the following command against my webserver implementation: </p>
+            
+            <pre><code># wrk-pipeline -H 'Host: localhost' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Connection: keep-alive' -d 120 -c 256 -t 8 --pipeline 16 http://127.0.0.1:8080/plaintext&#x000A;</code></pre>
+            
+            <p>After more thinking, I suspected that calling back into java code so often during the loop was the cause of the problems. So I checked the openjdk source code to find the names of the actual fields that hold the limit and position values. I changed my code as follows:</p>
+            
+            <pre class="syntax clang">&#x000A;JNIEXPORT jlong JNICALL Java_io_netty_jni_internal_Native_writev(JNIEnv * env, jclass clazz, jint fd, jobjectArray buffers, jint offset, jint length) {&#x000A;    struct iovec iov[length];&#x000A;    int i;&#x000A;    int iovidx = 0;&#x000A;    for (i = offset; i &lt; length; i++) {&#x000A;        jobject bufObj = (*env)-&gt;GetObjectArrayElement(env, buffers, i);&#x000A;        jint pos = (*env)-&gt;GetIntField(env, bufObj, posFieldId);&#x000A;&#x000A;        jint limit = (*env)-&gt;GetIntField(env, bufObj, limitFieldId);&#x000A;        void *buffer = (*env)-&gt;GetDirectBufferAddress(env, bufObj);&#x000A;        iov[iovidx].iov_base = buffer + pos;&#x000A;        iov[iovidx].iov_len = limit - pos;&#x000A;        iovidx++;&#x000A;    }&#x000A;    ...&#x000A;     // code to write to the fd &#x000A;     ...&#x000A;}</pre>
+            
+            <p>This change resulted in a boost of about 63k req/sec for a total of about <em>593k req/sec</em>! Not bad at all&#8230; </p>
+            
+            <p>Each benchmark iteration included a 20 minute warmup period followed by 3 runs of 2 minutes to gather the actual data.</p>
+            
+            <p>The following graphs show the outcome in detail:</p>
+            
+            <p><img src="/blog/images/jni_request_sec.png" alt="RequestsPerSecond" title="Requests per second" /></p>
+            
+            <p><img src="/blog/images/jni_transfer_sec.png" alt="TransferPerSecond" title="Transfer (MB) per second" /></p>
+            
+            <p>Lessons learned here are that crossing the border is quite expensive when you are pushing hard enough. The down-side of accessing the fields directly is that a change to the field itself will break your code.  In the actual code (which I will blog about and release soon), this is handled gracefully by falling back to using the methods if the fields aren't found, and logging a warning.</p>
+            
+            <h2 id="releasing-with-care">Releasing with care</h2>
+            
+            <p>When using JNI, you often have to convert from some of the various <code>j*Array</code> instances to a pointer and release it again after you are done. So make sure all the changes are "synced" between the array you passed to the jni method and the pointer you used within the jni code. 
+            When calling <code>Release*ArrayElements(...)</code> you have to specify a mode to tell the JVM how it should handle the syncing of the array you passed in and the one used within your JNI code.</p>
+            
+            <p>Different modes are:</p>
+            
+            <ul>
+              <li>
+                <p><strong>0</strong></p>
+            
+                <p>Default: copy everything from the native array to the java array, and free the java array.</p>
+              </li>
+              <li>
+                <p><strong>JNI_ABORT</strong></p>
+            
+                <p>Don't touch the java array but free it.</p>
+              </li>
+              <li>
+                <p><strong>JNI_COMMIT</strong></p>
+            
+                <p>Copy everything from the native array to the java array, but don't free it. It must be freed later.</p>
+              </li>
+            </ul>
+            
+            <p>Often people just use mode 0 as it is the "safest". But using 0 when you actually don't need it gives you a performance penality. Why? 
+            Mainly because using 0 will trigger an array copy all the time, but there are two situations where you won't need the array copy at all:</p>
+            
+            <ol>
+              <li>You are not changing the values in the array at all; only reading them.</li>
+              <li>The JVM returns a direct pointer to the java array which is pinned in memory. When this is the case, you won't need to copy the array over as you operate directly on the same data used by java itself. Whether or not the JVM does this depends on the JNI implementation. Because of this, you need to pass in a pointer to a jboolean when you obtain the elements. The value of this jboolean indicates whether a copy was made or if it is just pinned. </li>
+            </ol>
+            
+            <p>The following code modifies the native array and then checks if it needs to copy the data back or not.</p>
+            
+            <pre class="syntax clang">&#x000A;JNIEXPORT jint JNICALL Java_io_netty_jni_internal_Native_epollWait(JNIEnv * env, jclass clazz, jint efd, jlongArray events, jint timeout) {&#x000A;    int len = (*env)-&gt;GetArrayLength(env, events);&#x000A;    struct epoll_event ev[len];&#x000A;    int ready;&#x000A;&#x000A;    // blocks until ev is filled and return if ready &lt; 1.&#x000A;    ....&#x000A;&#x000A;    jboolean isCopy;&#x000A;&#x000A;    jlong *elements = (*env)-&gt;GetLongArrayElements(env, events, &amp;isCopy);&#x000A;    if (elements == NULL) {&#x000A;        // No memory left ?!?!?&#x000A;        throwOutOfMemoryError(env, "Can't allocate memory");&#x000A;        return return -1;&#x000A;    }&#x000A;    int i;&#x000A;    for (i = 0; i &lt; ready; i++) {&#x000A;        elements[i] = ev[i].data.u64;&#x000A;    }&#x000A;        &#x000A;    jint mode;&#x000A;    // release again to prevent memory leak&#x000A;    if (isCopy) {&#x000A;        mode = 0;&#x000A;    } else {&#x000A;        // was just pinned so use JNI_ABORT to eliminate not needed copy.&#x000A;        mode = JNI_ABORT;&#x000A;    }&#x000A;    (*env)-&gt;ReleaseLongArrayElements(env, events, elements, mode);&#x000A; &#x000A;    return ready;&#x000A;}</pre>
+            
+            <p>Doing the isCopy check may save you an array copy, so it's a good practice. There are more JNI methods that allow you to specify a mode, for which this advice also applies.</p>
+            
+            <h2 id="summary">Summary</h2>
+            <p>Hopefully, this post gave you some insight about JNI and the performance impact some operations have. The next post will cover the native transport for netty in detail, and give you some concrete numbers in terms of performance. So stay tuned &#8230;.</p>
+            
+            <p>Thanks again to <a href="https://twitter.com/nitsanw">Nitsan Wakart</a> , <a href="https://twitter.com/daschl">Michael Nitschinger</a> and <a href="https://twitter.com/jcrossley3">Jim Crossley</a> for the review!</p>
+            
+            <h2 id="usefull-jni-links">Usefull JNI Links</h2>
+            
+            <p><a href="http://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/jniTOC.html">Java Native Interface Specification</a></p>
+            
+            <p><a href="https://thenewcircle.com/s/post/1292/jni_reference_example">JNI Reference Example</a></p>
+            
+            <p><a href="http://developer.android.com/training/articles/perf-jni.html">JNI Tips</a></p>
+          </div>
+        </article>
+        <ul class="pager">
+          <li class="previous">
+            <a href="../../../../blog/2013/11/09/The-hidden-performance-costs-of-instantiating-Throwables/">&larr; Older</a>
+          </li>
+          <li>
+            <a href="../../../../index.html">List all blog posts</a>
+          </li>
+          <li class="next disabled">
+            <a href="#">Newer &rarr;</a>
+          </li>
+        </ul>
+      </div>
+      <div class="comments">
+        
+                    <div id="disqus_thread"></div>
+                    <script type="text/javascript">
+                    var disqus_shortname = 'normanmaurer';
+                    var disqus_url = "http://normanmaurer.me/blog/2014/01/07/JNI-Performance-Welcome-to-the-dark-side/";
+                    var disqus_developer = null;
+                    var disqus_identifier = null;
+                    (function() {
+                      var dsq = document.createElement("script"); dsq.type = "text/javascript"; dsq.async = true;
+                      dsq.src = "http://normanmaurer.disqus.com/embed.js";
+                      (document.getElementsByTagName("head")[0] || document.getElementsByTagName("body")[0]).appendChild(dsq);
+                    })();
+                    </script>
+                    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript=normanmaurer">comments powered by Disqus.</a></noscript>
+      </div>
+      <hr>
+      <footer>
+        <p>&copy; Norman Maurer 2013 - 2014</p>
+      </footer>
+      <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js" type="text/javascript"></script>
+      <script src="http://normanmaurer.me/javascripts/bootstrap-collapse.js" type="text/javascript"></script>
+      <script src="http://normanmaurer.me/javascripts/jquery-syntax/jquery.syntax.min.js" type="text/javascript"></script>
+      <script>
+        $($.syntax({blockLayout: 'plain'}))
+      </script>
+    </div>
+  </body>
+</html>
+<script type="text/javascript">
+var _gaq = _gaq || [];
+_gaq.push(['_setAccount','UA-45259657-1']);
+_gaq.push(['_trackPageview']);
+(function() {
+ var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+ ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+ var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+})();
+</script>

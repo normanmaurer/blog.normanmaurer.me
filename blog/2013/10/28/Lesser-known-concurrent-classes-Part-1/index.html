@@ -19,13 +19,19 @@
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
-          <a class="brand" href="http://normanmaurer.me">The thoughts of Norman Maurer and more</a>
+          <a class="brand" href="http://normanmaurer.me"></a>
           <ul class="nav">
             <li>
               <a href="http://normanmaurer.me">Home</a>
             </li>
             <li>
-              <a href="/blog/2013/11/09/The-hidden-performance-costs-of-instantiating-Throwables/">Blog</a>
+              <a href="/blog/2014/01/07/JNI-Performance-Welcome-to-the-dark-side/">Blog</a>
+            </li>
+            <li>
+              <a href="http://normanmaurer.me/presentations">Presentations</a>
+            </li>
+            <li>
+              <a href="http://normanmaurer.me/projects">OpenSource Projects</a>
             </li>
             <li>
               <a href="http://normanmaurer.me/blog.atom">
@@ -33,13 +39,29 @@
               </a>
             </li>
             <li>
-              <a href="http://normanmaurer.me/presentations">Presentations</a>
+              <a href="https://twitter.com/normanmaurer">
+                <img src="/images/twitter-bird-light-bgs.png" style="width: 24px;">
+              </a>
+            </li>
+            <li>
+              <a href="https://github.com/normanmaurer">
+                <img src="/images/GitHub-Mark-32px.png" style="width: 18px;">
+              </a>
+            </li>
+            <li>
+              <a href="http://www.linkedin.com/in/normanmaurer">
+                <img src="/images/InBug-30px-R.png" style="width: 24px;">
+              </a>
+            </li>
+            <li>
+              <a href="https://speakerdeck.com/normanmaurer">
+                <img src="/images/speakerdeck.png" style="width: 24px;">
+              </a>
             </li>
           </ul>
         </div>
       </div>
     </div>
-    <div class="container"></div>
     <div class="container">
       <div id="content">
         <article>
@@ -195,22 +217,16 @@
                     </script>
                     <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript=normanmaurer">comments powered by Disqus.</a></noscript>
       </div>
-      <script>
-        $( function () {
-           var syntax_root = "/javascripts/jquery-syntax/"
-        
-           if (!$.browser.msie && $( '.syntax' ).length) {
-             $.getScript( syntax_root + "jquery.syntax.min.js", function () {
-               $.syntax( {root: syntax_root,
-                         blockLayout: 'plain'} )
-             } )
-           }
-         } )
-      </script>
       <hr>
       <footer>
-        <p>&copy; Norman Maurer 2013</p>
+        <p>&copy; Norman Maurer 2013 - 2014</p>
       </footer>
+      <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js" type="text/javascript"></script>
+      <script src="http://normanmaurer.me/javascripts/bootstrap-collapse.js" type="text/javascript"></script>
+      <script src="http://normanmaurer.me/javascripts/jquery-syntax/jquery.syntax.min.js" type="text/javascript"></script>
+      <script>
+        $($.syntax({blockLayout: 'plain'}))
+      </script>
     </div>
   </body>
 </html>
