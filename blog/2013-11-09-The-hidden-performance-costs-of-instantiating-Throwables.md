@@ -26,25 +26,29 @@ There are some situations where you would like to use the same `Throwable` multi
 To make things more clear let's have a look at some real-world example. In this example we assume that we have a list of pending writes which are all failed because the underlying `Channel` was closed. 
 
 The pending writes are represented by the `PendingWrite` interface as shown below.
-    
-    public interface PendingWrite {
-        void setSuccess();
-        void setFailure(Throwable cause);
-    }
+
+<pre class="syntax java"> 
+public interface PendingWrite {
+    void setSuccess();
+    void setFailure(Throwable cause);
+}
+</pre>
 
 
 We have a `Writer` class which will need to fail all `PendingWrite` instances with a `ClosedChannelException`. You may be tempted to implement it like this:
-  
-    public class Writer {
-       
-        ....
 
-        private void failPendingWrites(PendingWrite... writes) {
-            for (PendingWrite write: writes) {
-                write.setFailure(new ClosedChannelException());
-            }    
-        }
-     }
+<pre class="syntax java">  
+public class Writer {
+       
+    ....
+
+    private void failPendingWrites(PendingWrite... writes) {
+        for (PendingWrite write: writes) {
+            write.setFailure(new ClosedChannelException());
+        }    
+    }
+}
+</pre>
 
 
 This works, but if this method is called often and with a not to small array of `PendingWrite`s you are in serious trouble. It will need to fill in the stacktrace for every `PendingWrite` you are about to fail!
@@ -55,19 +59,21 @@ The key is to lazy create the `ClosedChannelException` and reuse it for each `Pe
 
 So fixing this is as easy as rewriting the `failPendingWrites(...)` method as shown here:
 
-    public class Writer {
-       ....
+<pre class="syntax java">
+public class Writer {
+    ....
 
-        private void failPendingWrites(PendingWrite... writes) {
-            if (writes.length == 0) {
-                return;
-            }
-            ClosedChannelException error = new ClosedChannelException();
-            for (PendingWrite write: writes) {
-                write.setFailure(error);
-            }
+    private void failPendingWrites(PendingWrite... writes) {
+        if (writes.length == 0) {
+            return;
         }
-     }
+        ClosedChannelException error = new ClosedChannelException();
+        for (PendingWrite write: writes) {
+            write.setFailure(error);
+        }
+    }
+}
+</pre>
 
 Notice we lazily create the `ClosedChannelException` only if needed (if we have something to fail) and reuse the same instance for all the `PendingWrite`s in the array. This will dramatically cut down the overhead, but you can reduce it even more with some tradeoff which I will explain next...
   
@@ -78,19 +84,21 @@ What you should remember in this case is to set the stacktrace to an empty array
 
 Let us see how this fit in again in our `Writer` class:
 
-    public class Writer {
-        private static final ClosedChannelException CLOSED_CHANNEL_EXCEPTION = new ClosedChannelException();
-        static {
-            CLOSED_CHANNEL_EXCEPTION.setStackTrace(new StackTraceElement[0]);
-        }
-       ....
+<pre class="syntax java">
+public class Writer {
+    private static final ClosedChannelException CLOSED_CHANNEL_EXCEPTION = new ClosedChannelException();
+    static {
+        CLOSED_CHANNEL_EXCEPTION.setStackTrace(new StackTraceElement[0]);
+    }
+    ....
 
-        private void failPendingWrites(PendingWrite... writes) {
-            for (PendingWrite write: writes) {
-                write.setFailure(CLOSED_CHANNEL_EXCEPTION);
-            }
+    private void failPendingWrites(PendingWrite... writes) {
+        for (PendingWrite write: writes) {
+            write.setFailure(CLOSED_CHANNEL_EXCEPTION);
         }
-     }
+    }
+}
+</pre>
 
 But where is this useful? 
 

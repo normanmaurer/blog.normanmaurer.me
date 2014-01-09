@@ -16,11 +16,13 @@ Like:
  * ....
 
 Using those is as easy as doing something like:
+<pre class="syntax java">
+AtomicLong atomic = new AtomicLong(0);
+atomic.compareAndSet(0, 1);
+...
+...
+</pre>
 
-    AtomicLong atomic = new AtomicLong(0);
-    atomic.compareAndSet(0, 1);
-    ...
-    ...
 
 So what is the big deal with them? It's about memory usage ... 
 Wouldn't it be nice to be able to just use a `volatile long`, save a object allocation and as a result use less memory? 
@@ -33,16 +35,18 @@ This is exactly where the not widely known Atomic\*FieldUpdater comes in. Those 
 
 So to replace the above usage of `AtomicLong` your code would look like:
 
-    private static final AtomicLongFieldUpdater<TheDeclaringClass> ATOMIC_UPDATER =
-            AtomicLongFieldUpdater.newUpdater(TheDeclaringClass.class, "atomic");
+<pre class="syntax java">
+private static final AtomicLongFieldUpdater&lt;TheDeclaringClass&gt; ATOMIC_UPDATER =
+        AtomicLongFieldUpdater.newUpdater(TheDeclaringClass.class, "atomic");
 
-    private volatile long atomic;
+private volatile long atomic;
 
-    public void yourMethod() {
-        ATOMIC_UPDATER.compareAndSet(this, 0, 1);
-        ...
-        ...
-    }
+public void yourMethod() {
+    ATOMIC_UPDATER.compareAndSet(this, 0, 1);
+    ...
+    ...
+}
+</pre>
 
 This works with some reflection magic which is used when you create the `AtomicLongFieldUpdater` instance. The field names passed in as argument (in this case atomic) will be used to lookup the declared volatile field. Thus you must be sure it matches. 
 And this is one of the weak things when using Atomic*FieldUpdater as there is no way for the compiler to detect that those match. So you need to keep an eye on this by yourself. 
@@ -61,39 +65,41 @@ Now with some theory behind us, let's proof our claim. Let us do a simple test h
 
 Let us first have a look at the actual code:
 
-    public class AtomicExample {
+<pre class="syntax java">
+public class AtomicExample {
 
-        final AtomicLong atomic1 = new AtomicLong(0);
-        final AtomicLong atomic2 = new AtomicLong(0);
-        final AtomicLong atomic3 = new AtomicLong(0);
-        final AtomicLong atomic4 = new AtomicLong(0);
-        final AtomicLong atomic5 = new AtomicLong(0);
-        final AtomicLong atomic6 = new AtomicLong(0);
-        final AtomicLong atomic7 = new AtomicLong(0);
-        final AtomicLong atomic8 = new AtomicLong(0);
-        final AtomicLong atomic9 = new AtomicLong(0);
-        final AtomicLong atomic10 = new AtomicLong(0);
-        final AtomicReference atomic11 = new AtomicReference<String>("String");
-        final AtomicReference atomic12 = new AtomicReference<String>("String");
-        final AtomicReference atomic13 = new AtomicReference<String>("String");
-        final AtomicReference atomic14 = new AtomicReference<String>("String");
-        final AtomicReference atomic15 = new AtomicReference<String>("String");
-        final AtomicReference atomic16 = new AtomicReference<String>("String");
-        final AtomicReference atomic17 = new AtomicReference<String>("String");
-        final AtomicReference atomic18 = new AtomicReference<String>("String");
-        final AtomicReference atomic19 = new AtomicReference<String>("String");
-        final AtomicReference atomic20 = new AtomicReference<String>("String");
+    final AtomicLong atomic1 = new AtomicLong(0);
+    final AtomicLong atomic2 = new AtomicLong(0);
+    final AtomicLong atomic3 = new AtomicLong(0);
+    final AtomicLong atomic4 = new AtomicLong(0);
+    final AtomicLong atomic5 = new AtomicLong(0);
+    final AtomicLong atomic6 = new AtomicLong(0);
+    final AtomicLong atomic7 = new AtomicLong(0);
+    final AtomicLong atomic8 = new AtomicLong(0);
+    final AtomicLong atomic9 = new AtomicLong(0);
+    final AtomicLong atomic10 = new AtomicLong(0);
+    final AtomicReference atomic11 = new AtomicReference&lt;String&gt;("String");
+    final AtomicReference atomic12 = new AtomicReference&lt;String&gt;("String");
+    final AtomicReference atomic13 = new AtomicReference&lt;String&gt;("String");
+    final AtomicReference atomic14 = new AtomicReference&lt;String&gt;("String");
+    final AtomicReference atomic15 = new AtomicReference&lt;String&gt;("String");
+    final AtomicReference atomic16 = new AtomicReference&lt;String&gt;("String");
+    final AtomicReference atomic17 = new AtomicReference&lt;String&gt;("String");
+    final AtomicReference atomic18 = new AtomicReference&lt;String&gt;("String");
+    final AtomicReference atomic19 = new AtomicReference&lt;String&gt;("String");
+    final AtomicReference atomic20 = new AtomicReference&lt;String&gt;("String");
 
-        public static void main(String[] args) throws Exception {
-            List<AtomicExample> list = new LinkedList<AtomicExample>();
-            for (int i = 0; i < 1000000; i++) {
-                list.add(new AtomicExample());
-            }
-            System.out.println("Created instances 1000000");
-
-            System.in.read();
+    public static void main(String[] args) throws Exception {
+        List&lt;AtomicExample&gt; list = new LinkedList&lt;AtomicExample&gt;();
+        for (int i = 0; i < 1000000; i++) {
+            list.add(new AtomicExample());
         }
+        System.out.println("Created instances 1000000");
+
+        System.in.read();
     }
+}
+</pre>
 
 You may think this is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but which are still related. Like all of them are created for each new connection.
 
@@ -107,80 +113,82 @@ Now let's do a second version of this class but replace `AtomicLong` with `volat
 
 The code looks like this now:
 
-    public class AtomicFieldExample {
+<pre class="syntax java">
+public class AtomicFieldExample {
 
-        volatile long atomic1 = 0;
-        volatile long atomic2 = 0;
-        volatile long atomic3 = 0;
-        volatile long atomic4 = 0;
-        volatile long atomic5 = 0;
-        volatile long atomic6 = 0;
-        volatile long atomic7 = 0;
-        volatile long atomic8 = 0;
-        volatile long atomic9 = 0;
-        volatile long atomic10 = 0;
-        volatile String atomic11 = "String";
-        volatile String atomic12 = "String";
-        volatile String atomic13 = "String";
-        volatile String atomic14 = "String";
-        volatile String atomic15 = "String";
-        volatile String atomic16 = "String";
-        volatile String atomic17 = "String";
-        volatile String atomic18 = "String";
-        volatile String atomic19 = "String";
-        volatile String atomic20 = "String";
+    volatile long atomic1 = 0;
+    volatile long atomic2 = 0;
+    volatile long atomic3 = 0;
+    volatile long atomic4 = 0;
+    volatile long atomic5 = 0;
+    volatile long atomic6 = 0;
+    volatile long atomic7 = 0;
+    volatile long atomic8 = 0;
+    volatile long atomic9 = 0;
+    volatile long atomic10 = 0;
+    volatile String atomic11 = "String";
+    volatile String atomic12 = "String";
+    volatile String atomic13 = "String";
+    volatile String atomic14 = "String";
+    volatile String atomic15 = "String";
+    volatile String atomic16 = "String";
+    volatile String atomic17 = "String";
+    volatile String atomic18 = "String";
+    volatile String atomic19 = "String";
+    volatile String atomic20 = "String";
 
-        static final AtomicLongFieldUpdater<AtomicFieldExample> ATOMIC1_UPDATER = 
-                AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic1");
-        static final AtomicLongFieldUpdater<AtomicFieldExample> ATOMIC2_UPDATER = 
-                AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic2");
-        static final AtomicLongFieldUpdater<AtomicFieldExample> ATOMIC3_UPDATER = 
-                AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic3");
-        static final AtomicLongFieldUpdater<AtomicFieldExample> ATOMIC4_UPDATER = 
-                AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic4");
-        static final AtomicLongFieldUpdater<AtomicFieldExample> ATOMIC5_UPDATER = 
-                AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic5");
-        static final AtomicLongFieldUpdater<AtomicFieldExample> ATOMIC6_UPDATER = 
-                AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic6");
-        static final AtomicLongFieldUpdater<AtomicFieldExample> ATOMIC7_UPDATER = 
-                AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic7");
-        static final AtomicLongFieldUpdater<AtomicFieldExample> ATOMIC8_UPDATER = 
-                AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic8");
-        static final AtomicLongFieldUpdater<AtomicFieldExample> ATOMIC9_UPDATER = 
-                AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic9");
-        static final AtomicLongFieldUpdater<AtomicFieldExample> ATOMIC10_UPDATER = 
-                AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic10");
-        static final AtomicReferenceFieldUpdater<AtomicFieldExample, String> ATOMIC11_UPDATER = 
-                AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic11");
-        static final AtomicReferenceFieldUpdater<AtomicFieldExample, String> ATOMIC12_UPDATER = 
-                AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic12");
-        static final AtomicReferenceFieldUpdater<AtomicFieldExample, String> ATOMIC13_UPDATER = 
-                AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic13");
-        static final AtomicReferenceFieldUpdater<AtomicFieldExample, String> ATOMIC14_UPDATER = 
-                AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic14");
-        static final AtomicReferenceFieldUpdater<AtomicFieldExample, String> ATOMIC15_UPDATER = 
-                AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic15");
-        static final AtomicReferenceFieldUpdater<AtomicFieldExample, String> ATOMIC16_UPDATER = 
-                AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic16");
-        static final AtomicReferenceFieldUpdater<AtomicFieldExample, String> ATOMIC17_UPDATER = 
-                AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic17");
-        static final AtomicReferenceFieldUpdater<AtomicFieldExample, String> ATOMIC18_UPDATER = 
-                AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic18");
-        static final AtomicReferenceFieldUpdater<AtomicFieldExample, String> ATOMIC19_UPDATER = 
-                AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic19");
-        static final AtomicReferenceFieldUpdater<AtomicFieldExample, String> ATOMIC20_UPDATER = 
-                AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic20");
+    static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC1_UPDATER = 
+            AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic1");
+    static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC2_UPDATER = 
+            AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic2");
+    static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC3_UPDATER = 
+            AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic3");
+    static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC4_UPDATER = 
+            AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic4");
+    static final AtomicLongFieldUpdater<&lt;AtomicFieldExample&gt; ATOMIC5_UPDATER = 
+            AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic5");
+    static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC6_UPDATER = 
+            AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic6");
+    static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC7_UPDATER = 
+            AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic7");
+    static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC8_UPDATER = 
+            AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic8");
+    static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC9_UPDATER = 
+            AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic9");
+    static final AtomicLongFieldUpdater&lt;AtomicFieldExample&gt; ATOMIC10_UPDATER = 
+            AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, "atomic10");
+    static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC11_UPDATER = 
+            AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic11");
+    static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt;ATOMIC12_UPDATER = 
+            AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic12");
+    static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC13_UPDATER = 
+            AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic13");
+    static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC14_UPDATER = 
+            AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic14");
+    static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC15_UPDATER = 
+            AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic15");
+    static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC16_UPDATER = 
+            AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic16");
+    static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt;ATOMIC17_UPDATER = 
+            AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic17");
+    static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC18_UPDATER = 
+            AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic18");
+    static final AtomicReferenceFieldUpdater&lt;AtomicFieldExample, String&gt; ATOMIC19_UPDATER = 
+            AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic19");
+    static final AtomicReferenceFieldUpdater<&lt;AtomicFieldExample, String&gt;ATOMIC20_UPDATER = 
+            AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, "atomic20");
 
-        public static void main(String[] args) throws Exception {
-            List<AtomicFieldExample> list = new LinkedList<AtomicFieldExample>();
-            for (int i = 0; i < 1000000; i++) {
-                list.add(new AtomicFieldExample());
-            }
-            System.out.println("Created instances 1000000");
-
-            System.in.read();
+    public static void main(String[] args) throws Exception {
+        List&lt;AtomicFieldExample&gt; list = new LinkedList<&lt;AtomicFieldExample&gt;();
+        for (int i = 0; i < 1000000; i++) {
+            list.add(new AtomicFieldExample());
         }
+        System.out.println("Created instances 1000000");
+
+        System.in.read();
     }
+}
+</pre>
 
 As you see the code becomes a bit more bloated, hopefully it pays out. Again let us take a look at the memory usage as before.
 
