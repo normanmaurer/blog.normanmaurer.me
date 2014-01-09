@@ -95,11 +95,11 @@
             
             <p>The pending writes are represented by the <code>PendingWrite</code> interface as shown below.</p>
             
-            <pre><code>public interface PendingWrite {&#x000A;    void setSuccess();&#x000A;    void setFailure(Throwable cause);     }&#x000A;</code></pre>
+            <pre class="syntax java"> &#x000A;public interface PendingWrite {&#x000A;    void setSuccess();&#x000A;    void setFailure(Throwable cause);&#x000A;}</pre>
             
             <p>We have a <code>Writer</code> class which will need to fail all <code>PendingWrite</code> instances with a <code>ClosedChannelException</code>. You may be tempted to implement it like this:</p>
             
-            <pre><code>public class Writer {&#x000A;   &#x000A;    ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        for (PendingWrite write: writes) {&#x000A;            write.setFailure(new ClosedChannelException());&#x000A;        }    &#x000A;    }&#x000A; }&#x000A;</code></pre>
+            <pre class="syntax java">  &#x000A;public class Writer {&#x000A;       &#x000A;    ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        for (PendingWrite write: writes) {&#x000A;            write.setFailure(new ClosedChannelException());&#x000A;        }    &#x000A;    }&#x000A;}</pre>
             
             <p>This works, but if this method is called often and with a not to small array of <code>PendingWrite</code>s you are in serious trouble. It will need to fill in the stacktrace for every <code>PendingWrite</code> you are about to fail!</p>
             
@@ -109,7 +109,7 @@
             
             <p>So fixing this is as easy as rewriting the <code>failPendingWrites(...)</code> method as shown here:</p>
             
-            <pre><code>public class Writer {&#x000A;   ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        if (writes.length == 0) {&#x000A;            return;&#x000A;        }&#x000A;        ClosedChannelException error = new ClosedChannelException();&#x000A;        for (PendingWrite write: writes) {&#x000A;            write.setFailure(error);&#x000A;        }&#x000A;    }&#x000A; }&#x000A;</code></pre>
+            <pre class="syntax java">&#x000A;public class Writer {&#x000A;    ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        if (writes.length == 0) {&#x000A;            return;&#x000A;        }&#x000A;        ClosedChannelException error = new ClosedChannelException();&#x000A;        for (PendingWrite write: writes) {&#x000A;            write.setFailure(error);&#x000A;        }&#x000A;    }&#x000A;}</pre>
             
             <p>Notice we lazily create the <code>ClosedChannelException</code> only if needed (if we have something to fail) and reuse the same instance for all the <code>PendingWrite</code>s in the array. This will dramatically cut down the overhead, but you can reduce it even more with some tradeoff which I will explain next…</p>
             
@@ -120,7 +120,7 @@
             
             <p>Let us see how this fit in again in our <code>Writer</code> class:</p>
             
-            <pre><code>public class Writer {&#x000A;    private static final ClosedChannelException CLOSED_CHANNEL_EXCEPTION = new ClosedChannelException();&#x000A;    static {&#x000A;        CLOSED_CHANNEL_EXCEPTION.setStackTrace(new StackTraceElement[0]);&#x000A;    }&#x000A;   ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        for (PendingWrite write: writes) {&#x000A;            write.setFailure(CLOSED_CHANNEL_EXCEPTION);&#x000A;        }&#x000A;    }&#x000A; }&#x000A;</code></pre>
+            <pre class="syntax java">&#x000A;public class Writer {&#x000A;    private static final ClosedChannelException CLOSED_CHANNEL_EXCEPTION = new ClosedChannelException();&#x000A;    static {&#x000A;        CLOSED_CHANNEL_EXCEPTION.setStackTrace(new StackTraceElement[0]);&#x000A;    }&#x000A;    ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        for (PendingWrite write: writes) {&#x000A;            write.setFailure(CLOSED_CHANNEL_EXCEPTION);&#x000A;        }&#x000A;    }&#x000A;}</pre>
             
             <p>But where is this useful? </p>
             

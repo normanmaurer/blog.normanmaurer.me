@@ -2,13 +2,13 @@
 <feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom">
   <id>http://normanmaurer.me/</id>
   <title>Normans rant's and more</title>
-  <updated>2014-01-08T20:14:38+01:00</updated>
+  <updated>2014-01-08T20:19:41+01:00</updated>
   <link href="http://normanmaurer.me/blog.atom" rel="self" type="application/atom+xml" />
   <link href="http://normanmaurer.me/" rel="alternate" type="text/html" />
   <entry>
     <id>http://normanmaurer.me/blog/2014/01/07/JNI-Performance-Welcome-to-the-dark-side/</id>
     <title>JNI Performance - Welcome to the dark side</title>
-    <updated>2014-01-08T20:14:38+01:00</updated>
+    <updated>2014-01-08T20:19:41+01:00</updated>
     <published>2014-01-07T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2014/01/07/JNI-Performance-Welcome-to-the-dark-side/" rel="alternate" type="text/html" />
     <author>
@@ -257,7 +257,7 @@
   <entry>
     <id>http://normanmaurer.me/blog/2013/11/09/The-hidden-performance-costs-of-instantiating-Throwables/</id>
     <title>The hidden performance costs of instantiating Throwables</title>
-    <updated>2014-01-08T20:14:38+01:00</updated>
+    <updated>2014-01-09T06:56:46+01:00</updated>
     <published>2013-11-09T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2013/11/09/The-hidden-performance-costs-of-instantiating-Throwables/" rel="alternate" type="text/html" />
     <author>
@@ -296,15 +296,17 @@
       
       &lt;p&gt;The pending writes are represented by the &lt;code&gt;PendingWrite&lt;/code&gt; interface as shown below.&lt;/p&gt;
       
-      &lt;pre&gt;&lt;code&gt;public interface PendingWrite {
+      &lt;pre class=&quot;syntax java&quot;&gt; 
+      public interface PendingWrite {
           void setSuccess();
-          void setFailure(Throwable cause);     }
-      &lt;/code&gt;&lt;/pre&gt;
+          void setFailure(Throwable cause);
+      }&lt;/pre&gt;
       
       &lt;p&gt;We have a &lt;code&gt;Writer&lt;/code&gt; class which will need to fail all &lt;code&gt;PendingWrite&lt;/code&gt; instances with a &lt;code&gt;ClosedChannelException&lt;/code&gt;. You may be tempted to implement it like this:&lt;/p&gt;
       
-      &lt;pre&gt;&lt;code&gt;public class Writer {
-         
+      &lt;pre class=&quot;syntax java&quot;&gt;  
+      public class Writer {
+             
           ....
       
           private void failPendingWrites(PendingWrite... writes) {
@@ -312,8 +314,7 @@
                   write.setFailure(new ClosedChannelException());
               }    
           }
-       }
-      &lt;/code&gt;&lt;/pre&gt;
+      }&lt;/pre&gt;
       
       &lt;p&gt;This works, but if this method is called often and with a not to small array of &lt;code&gt;PendingWrite&lt;/code&gt;s you are in serious trouble. It will need to fill in the stacktrace for every &lt;code&gt;PendingWrite&lt;/code&gt; you are about to fail!&lt;/p&gt;
       
@@ -323,8 +324,9 @@
       
       &lt;p&gt;So fixing this is as easy as rewriting the &lt;code&gt;failPendingWrites(...)&lt;/code&gt; method as shown here:&lt;/p&gt;
       
-      &lt;pre&gt;&lt;code&gt;public class Writer {
-         ....
+      &lt;pre class=&quot;syntax java&quot;&gt;
+      public class Writer {
+          ....
       
           private void failPendingWrites(PendingWrite... writes) {
               if (writes.length == 0) {
@@ -335,8 +337,7 @@
                   write.setFailure(error);
               }
           }
-       }
-      &lt;/code&gt;&lt;/pre&gt;
+      }&lt;/pre&gt;
       
       &lt;p&gt;Notice we lazily create the &lt;code&gt;ClosedChannelException&lt;/code&gt; only if needed (if we have something to fail) and reuse the same instance for all the &lt;code&gt;PendingWrite&lt;/code&gt;s in the array. This will dramatically cut down the overhead, but you can reduce it even more with some tradeoff which I will explain next…&lt;/p&gt;
       
@@ -347,20 +348,20 @@
       
       &lt;p&gt;Let us see how this fit in again in our &lt;code&gt;Writer&lt;/code&gt; class:&lt;/p&gt;
       
-      &lt;pre&gt;&lt;code&gt;public class Writer {
+      &lt;pre class=&quot;syntax java&quot;&gt;
+      public class Writer {
           private static final ClosedChannelException CLOSED_CHANNEL_EXCEPTION = new ClosedChannelException();
           static {
               CLOSED_CHANNEL_EXCEPTION.setStackTrace(new StackTraceElement[0]);
           }
-         ....
+          ....
       
           private void failPendingWrites(PendingWrite... writes) {
               for (PendingWrite write: writes) {
                   write.setFailure(CLOSED_CHANNEL_EXCEPTION);
               }
           }
-       }
-      &lt;/code&gt;&lt;/pre&gt;
+      }&lt;/pre&gt;
       
       &lt;p&gt;But where is this useful? &lt;/p&gt;
       
@@ -413,7 +414,7 @@
   <entry>
     <id>http://normanmaurer.me/blog/2013/10/28/Lesser-known-concurrent-classes-Part-1/</id>
     <title>Lesser known concurrent classes - Atomic*FieldUpdater</title>
-    <updated>2014-01-08T20:14:38+01:00</updated>
+    <updated>2014-01-09T06:54:10+01:00</updated>
     <published>2013-10-28T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2013/10/28/Lesser-known-concurrent-classes-Part-1/" rel="alternate" type="text/html" />
     <author>
@@ -435,14 +436,14 @@
       
       
       Using those is as easy as doing something like:
-      
+      &lt;pre class="syntax java"&gt;
       AtomicLong atomic = new AtomicLong(0);
       atomic.compareAndSet(0, 1);
-      ...
-      ...
+      …
+      …
+      &lt;/pre&gt;
       
-      
-      So what is the big deal with them? It's about...
+      So what is the big deal with them?...
     </summary>
     <content type="html">
       
@@ -460,13 +461,13 @@
         &lt;li&gt;….&lt;/li&gt;
       &lt;/ul&gt;
       
-      &lt;p&gt;Using those is as easy as doing something like:&lt;/p&gt;
-      
-      &lt;pre&gt;&lt;code&gt;AtomicLong atomic = new AtomicLong(0);
+      &lt;p&gt;Using those is as easy as doing something like:
+      &amp;lt;pre class=&quot;syntax java&quot;&amp;gt;
+      AtomicLong atomic = new AtomicLong(0);
       atomic.compareAndSet(0, 1);
-      ...
-      ...
-      &lt;/code&gt;&lt;/pre&gt;
+      …
+      …
+      &amp;lt;/pre&amp;gt;&lt;/p&gt;
       
       &lt;p&gt;So what is the big deal with them? It's about memory usage … 
       Wouldn't it be nice to be able to just use a &lt;code&gt;volatile long&lt;/code&gt;, save a object allocation and as a result use less memory? &lt;/p&gt;
@@ -483,7 +484,8 @@
       
       &lt;p&gt;So to replace the above usage of &lt;code&gt;AtomicLong&lt;/code&gt; your code would look like:&lt;/p&gt;
       
-      &lt;pre&gt;&lt;code&gt;private static final AtomicLongFieldUpdater&amp;lt;TheDeclaringClass&amp;gt; ATOMIC_UPDATER =
+      &lt;pre class=&quot;syntax java&quot;&gt;
+      private static final AtomicLongFieldUpdater&amp;lt;TheDeclaringClass&amp;gt; ATOMIC_UPDATER =
               AtomicLongFieldUpdater.newUpdater(TheDeclaringClass.class, &quot;atomic&quot;);
       
       private volatile long atomic;
@@ -491,8 +493,8 @@
       public void yourMethod() {
           ATOMIC_UPDATER.compareAndSet(this, 0, 1);
           ...
-          ...     }
-      &lt;/code&gt;&lt;/pre&gt;
+          ...
+      }&lt;/pre&gt;
       
       &lt;p&gt;This works with some reflection magic which is used when you create the &lt;code&gt;AtomicLongFieldUpdater&lt;/code&gt; instance. The field names passed in as argument (in this case atomic) will be used to lookup the declared volatile field. Thus you must be sure it matches. 
       And this is one of the weak things when using Atomic*FieldUpdater as there is no way for the compiler to detect that those match. So you need to keep an eye on this by yourself. &lt;/p&gt;
@@ -510,7 +512,8 @@
       
       &lt;p&gt;Let us first have a look at the actual code:&lt;/p&gt;
       
-      &lt;pre&gt;&lt;code&gt;public class AtomicExample {
+      &lt;pre class=&quot;syntax java&quot;&gt;
+      public class AtomicExample {
       
           final AtomicLong atomic1 = new AtomicLong(0);
           final AtomicLong atomic2 = new AtomicLong(0);
@@ -542,8 +545,7 @@
       
               System.in.read();
           }
-      }
-      &lt;/code&gt;&lt;/pre&gt;
+      }&lt;/pre&gt;
       
       &lt;p&gt;You may think this is not very often the case in real world applications but just think about it for a bit. It may not be in one class but actually may be in many classes but which are still related. Like all of them are created for each new connection.&lt;/p&gt;
       
@@ -557,7 +559,8 @@
       
       &lt;p&gt;The code looks like this now:&lt;/p&gt;
       
-      &lt;pre&gt;&lt;code&gt;public class AtomicFieldExample {
+      &lt;pre class=&quot;syntax java&quot;&gt;
+      public class AtomicFieldExample {
       
           volatile long atomic1 = 0;
           volatile long atomic2 = 0;
@@ -588,7 +591,7 @@
                   AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic3&quot;);
           static final AtomicLongFieldUpdater&amp;lt;AtomicFieldExample&amp;gt; ATOMIC4_UPDATER = 
                   AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic4&quot;);
-          static final AtomicLongFieldUpdater&amp;lt;AtomicFieldExample&amp;gt; ATOMIC5_UPDATER = 
+          static final AtomicLongFieldUpdater&amp;lt;&amp;lt;AtomicFieldExample&amp;gt; ATOMIC5_UPDATER = 
                   AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic5&quot;);
           static final AtomicLongFieldUpdater&amp;lt;AtomicFieldExample&amp;gt; ATOMIC6_UPDATER = 
                   AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic6&quot;);
@@ -602,7 +605,7 @@
                   AtomicLongFieldUpdater.newUpdater(AtomicFieldExample.class, &quot;atomic10&quot;);
           static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC11_UPDATER = 
                   AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic11&quot;);
-          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC12_UPDATER = 
+          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt;ATOMIC12_UPDATER = 
                   AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic12&quot;);
           static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC13_UPDATER = 
                   AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic13&quot;);
@@ -612,17 +615,17 @@
                   AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic15&quot;);
           static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC16_UPDATER = 
                   AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic16&quot;);
-          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC17_UPDATER = 
+          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt;ATOMIC17_UPDATER = 
                   AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic17&quot;);
           static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC18_UPDATER = 
                   AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic18&quot;);
           static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC19_UPDATER = 
                   AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic19&quot;);
-          static final AtomicReferenceFieldUpdater&amp;lt;AtomicFieldExample, String&amp;gt; ATOMIC20_UPDATER = 
+          static final AtomicReferenceFieldUpdater&amp;lt;&amp;lt;AtomicFieldExample, String&amp;gt;ATOMIC20_UPDATER = 
                   AtomicReferenceFieldUpdater.newUpdater(AtomicFieldExample.class, String.class, &quot;atomic20&quot;);
       
           public static void main(String[] args) throws Exception {
-              List&amp;lt;AtomicFieldExample&amp;gt; list = new LinkedList&amp;lt;AtomicFieldExample&amp;gt;();
+              List&amp;lt;AtomicFieldExample&amp;gt; list = new LinkedList&amp;lt;&amp;lt;AtomicFieldExample&amp;gt;();
               for (int i = 0; i &amp;lt; 1000000; i++) {
                   list.add(new AtomicFieldExample());
               }
@@ -630,8 +633,7 @@
       
               System.in.read();
           }
-      }
-      &lt;/code&gt;&lt;/pre&gt;
+      }&lt;/pre&gt;
       
       &lt;p&gt;As you see the code becomes a bit more bloated, hopefully it pays out. Again let us take a look at the memory usage as before.&lt;/p&gt;
       
