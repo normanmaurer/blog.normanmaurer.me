@@ -5,7 +5,7 @@ layout: base
 
 ## Presentations
 
-As part of my Job at [Red Hat](http://www.redhat.com) I'm sometimes gives presentations on various topics. Mostly on things related to the projects I'm working on like [Netty](http://netty.io) and [Vert.x](http://vertx.io).
+As part of my Job at [Red Hat](http://www.redhat.com) I'm sometimes give presentations on various topics. Mostly on things related to the projects I'm working on like [Netty](http://netty.io) and [Vert.x](http://vertx.io).
 
 Here you find various of those. This list is currently not complete but I will try to complete it over the time.
 
