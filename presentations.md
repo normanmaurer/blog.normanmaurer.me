@@ -13,6 +13,6 @@ Here you find various of those. This list is currently not complete but I will t
   * __Vert.x - The next-gen Polyglot Asynchronous Platform__, Eclipsecon EU, Nov 2013:  [Slides](/presentations/2013-eclipsecon-eu-vertx)
   * __Netty 4 - Network - Application development the easy way__, W-JAX, Nov 2013:  [Slides](/presentations/2013-wjax-netty)
   * __Vert.x - The next-gen Polyglot Asynchronous Platform__, JUG Frankfurt, Oct 2013:  [Slides](/presentations/2013-jugffm-vertx) . This is an extended version of the talk I gave at EclipseCon EU 2013.
-  * __Vert.x - The next-gen Polyglot Asynchronous Platform__, JUG Frankfurt, Oct 2013:  [Slides](/presentations/2013-jugffm-vertx) . This is an extended version of the talk I gave at EclipseCon EU 2013.
   * __Netty 4 - Network - Application development the easy way__, JUG Karlsruhe, Jan 2014:  [Video (German only)](http://parleys.com/play/52efea9be4b0e5728b25ef0a)
+  * __Netty 4 - A lookup behind the scenes__, EclipseCon NA 2014, Mar 2014:  [Slides](/presentations/2014-eclipsecon-na-netty/slides.html)
 

@@ -1,0 +1,338 @@
+= __Netty 4__ - A look behind the scenes
+@EclipseCon NA 2014 ; San Francisco ; 2014/03/18
+include::attributes.adoc[]
+
+:experimental:
+:toc2:
+:sectanchors:
+:idprefix:
+:idseparator: -
+:icons: font
+:source-highlighter: coderay
+
+[.topic.source]
+== Norman Maurer, Principal Software Engineer @ Red Hat Inc
+
+====
+* [icon-user]'{zwsp}' '{zwsp}' __Netty__ / Vert.x / All things NIO
+* [icon-user]'{zwsp}' '{zwsp}' Author of __Netty in Action__
+* [icon-twitter]'{zwsp}' @normanmaurer
+* [icon-github]'{zwsp}' github.com/normanmaurer
+====
+
+[.topic.source]
+== Agenda
+
+====
+* [icon-note]'{zwsp}' Introducing Netty
+* [icon-note]'{zwsp}' Vert.x case-study
+====
+
+
+[.topic.source]
+== What is __Netty__?
+
+"Netty is a NIO client server framework which enable quick and easy development of network applications such as protocol servers and clients..."
+-- Netty Website
+
+[.topic.source]
+== Features __Netty__ comes with...
+
+image::components.png[]
+
+[.topic.source]
+== Asynchronous and non blocking by nature
+
+====
+* [icon-note]'{zwsp}' I/O Operations don't block at all!
+* [icon-note]'{zwsp}' Notified later
+* [icon-note]'{zwsp}' Share one Thread 
+====
+
+"Don't call us, we'll call you."
+-- Hollywood principle
+
+[.topic.source]
+== But why non-blocking at all ?
+
+WARNING: Usually a Thread takes memory from 256kb to 1mb for the stack space! Also a lot of wasted resources...
+
+image::ouch.jpg[width=250] 
+....
+hhttp://www.flickr.com/photos/bibi/5204647994/
+....
+
+[.topic.source]
+== __Asynchronous__ in Action
+
+[source,java]
+----
+Channel channel = ...
+ChannelFuture cf = channel.writeAndFlush(data); <1>
+cf.addListener(new ChannelFutureListener() {    <2>
+  @Override
+  public void operationComplete(ChannelFuture future) {
+    if(!future.isSuccess() {
+        future.cause().printStacktrace();
+    } else { ... }
+  }
+});
+----
+<1> __Write__ to the `Channel` and __flush__
+<2> Add `ChannelFutureListener` to be notified once operations completes
+
+[.topic.source]
+== __ByteBuf__ - ByteBuffer on steroids!
+
+====
+* [icon-note]'{zwsp}' Separate index for reader/writer
+* [icon-note]'{zwsp}' Direct, Heap and Composite
+* [icon-note]'{zwsp}' Resizable with max capacity
+* [icon-note]'{zwsp}' Reference counting
+====
+
+[source,java]
+----
+ByteBuf buf = ...;
+buf.writeInt(1).writeBytes(data).writeBoolean(true)...
+----
+
+[.topic.source]
+== ByteBuf pooling to reduce allocation / deallocation time!
+
+TIP: Pooling pays off for direct and heap buffers!
+
+image::pooled_buffers.png[width=400]
+....
+https://blog.twitter.com/2013/netty-4-at-twitter-reduced-gc-overhead
+....
+
+[.topic.source]
+== ChannelHandlers - Where your handling logic lifes
+====
+* [icon-note]'{zwsp}' Inbound and Outbound
+* [icon-note]'{zwsp}' Called by the EventExecutor
+====
+
+image::channel_handlers.png[width=400]
+
+[.topic.source]
+== __ChannelHandler__ in Action
+
+[source,java]
+----
+@Sharable
+public class EchoHandler extends ChannelInboundHandlerAdapter {        
+  @Override 
+  public void channelRead(ChannelHandlerContext ctx, Object msg) { <1>
+    ctx.writeAndFlush(msg);
+  }
+        
+  @Override
+  public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) { <2>
+    cause.printStacktrace();
+    ctx.close();
+  }
+}
+----
+<1> Intercept received message and write it back to the remote peer
+<2> React on `Throwable` and close the connection
+
+[.topic.source]
+== __ChannelPipeline__ - Chain __ChannelHandlers__
+
+====
+* [icon-note]'{zwsp}' Holds ChannelHandlers
+* [icon-note]'{zwsp}' Per Channel
+* [icon-note]'{zwsp}' Events pass through
+====
+
+[source,sh]
+.+Kind of a unix-pipe-like thing...+
+----
+$ echo "Netty is shit...." | sed -e 's/is /is the /'
+                    Netty is the shit....
+                        
+----
+TIP: You see, everything is adjustable!
+
+[.topic.source]
+== __EventLoop__ - Someone needs to do the heavy work
+
+* [icon-note]'{zwsp}' Powers 0-n Channels
+* [icon-note]'{zwsp}' Bound to 1 Thread
+
+TIP: No need to worry about synchronization 
+
+image::thumb_up_2.jpg[width=180]
+....
+http://www.flickr.com/photos/za3tooor/65911648/
+....
+
+[.topic.source]
+== __EventLoop__ - All the ScheduleExecutorService goodies for free!
+
+image::eventexecutor.png[]
+
+[source,java]
+----
+public class WriteTimeOutHandler extends ChannelOutboundHandlerAdapter {
+  @Override
+  public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+    ctx.write(msg, promise);
+        
+    if (!promise.isDone() {
+      ctx.executor().schedule(new WriteTimeoutTask(promise), 30, TimeUnit.SECONDS); <1>
+    }
+  }
+}
+----
+<1> Schedule task for in 30 seconds
+
+[.topic.source]
+== Using Netty in your next application / framework!
+
+image::vertx.jpg[width=400]
+....
+A case study for using Netty based on Vert.x!
+....
+
+[.topic.source]
+== Often you need to expose callbacks to your users, but these not always match.
+
+[source,java]
+.+Used in Vert.x as callback for outbound operations+
+----
+public interface Handler<E> {
+  void handle(E event);
+}
+----
+
+[source,java]
+.+Used in Netty as callback for outbound operations.+
+----
+public interface ChannelFutureListener {
+  void operationComplete(ChannelFuture future) throws Exception;
+}
+
+public interface ChannelOutboundHandler extends ChannelHandler {
+  void write(ChannelHandlerContext ctx, Object msg, 
+      ChannelPromise promise) throws Exception;
+  ...
+}
+----
+
+
+[.topic.source]
+== Create adapter classes for Outbound operations.
+
+[source,java]
+----
+public class HandlerAdapter<AsyncResult<T>> implements ChannelFutureListener {
+  public HandlerAdapter(Handler<AsyncResult<T>> handler, T okResult) { ... }
+  @Override
+  public void operationComplete(ChannelFuture future) {
+    if (future.isSuccess()) {
+      handler.handle(new DefaultFutureResult<T>(okResult));
+    } else {
+      handler.handle(new DefaultFutureResult<T>(future.cause()));
+    }
+  }
+}
+public DefaultNetSocket implements NetSocket {
+  @Override
+  public void sendFile(String name, Handler<AsyncResult<NetSocket> callback) {
+    channel.writeAndFlush(createFileRegion(name)).addListener(
+        new HandlerAdapter(callback, this));
+  } 
+}
+----
+
+[.topic.source]
+== Notifications
+
+[source,java]
+.+Used in Vert.x as callback for inbound events+
+----
+public interface Handler<E> {
+  void handle(E event);
+}
+----
+
+[source,java]
+.+Used in Netty as callback for inbound events.+
+----
+public interface ChannelInboundHandler extends ChannelHandler {
+  void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception;
+
+  void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception;
+  ...
+----
+
+
+[.topic.source]
+== Create adapter classes for inbound events.
+
+[source,java]
+----
+public class InboundHandlerAdapter<T> extends ChannelInboundHandlerAdapter {
+  public InboundHandlerAdapter(Handler<T> dataHandler, 
+      Handler<Throwable> exceptionHandler) { ... }
+  
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, Object msg) {
+    handler.handle((T) msg);
+  }
+
+  @Override
+  public void exceptionCaught(ChannelHandlerCtx ctx, Throwable cause) {
+    exceptionHandler.handle(cause);
+  }
+}
+
+----
+
+[.topic.source]
+== Companies using _Netty_!
+
+image::companies.png[width=400]
+
+TIP: ... and many more ...
+
+
+[.topic.source]
+== We love Contributions!
+
+image::empire_wants_you_2.jpg[width=250]
+....
+http://www.flickr.com/photos/legofenris/4499417549/
+....
+
+[.topic.source]
+== Want to know more? 
+
+TIP: Buy my book http://www.manning.com/maurer/[Netty in Action] and make me __RICH__.
+
+image::maurer_cover150.jpg[width=100]
+....
+http://www.manning.com/maurer
+....
+
+__$ KA-CHING $__ 
+[.topic.source]
+== References
+
+NOTE: Netty - http://netty.io
+
+NOTE: Slides generated with Asciidoctor and DZSlides backend
+
+NOTE: Original slide template - Dan Allen & Sarah White
+
+NOTE: All pictures licensed with `Creative Commons Attribution` or +
+`Creative Commons Attribution-Share Alike`
+
+[.topic.ending, hrole="name"]
+== Norman Maurer
+
+[.footer]
+[icon-twitter]'{zwsp}' @normanmaurer
