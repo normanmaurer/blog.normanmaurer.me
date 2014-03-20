@@ -1,0 +1,276 @@
+<!DOCTYPE html><html lang="en" class="aspect-16-9"><head><meta charset="UTF-8"><meta name="generator" content="Asciidoctor 0.1.4, dzslides backend"><title>Netty Best Practices a.k.a Faster == Better</title><meta name="author" content="@Facebook 2014"><link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton:400,700,800,400italic|Cedarville+Cursive"><link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css"><link rel="stylesheet" href="./dzslides/themes/highlight/asciidoctor.css"><link rel="stylesheet" href="./dzslides/themes/style/asciidoctor.css"><style>section:not(.topic) > h2 { display: none;}</style><link rel="stylesheet" href="./dzslides/core/dzslides.css"><link rel="stylesheet" href="./dzslides/themes/transition/fade.css"></head><body><section class="title"><h1><em>Netty</em> Best Practices a.k.a <em>Faster == Better</em></h1><footer><span class="author">@Facebook 2014</span><span class="divider">&nbsp;&middot;&nbsp;</span><span class="author">Palo Alto</span><span class="divider">&nbsp;&middot;&nbsp;</span><span class="author">2014/03/19</span></footer></section><section class="topic source"><h2>Norman Maurer, Principal Software Engineer @ Red Hat Inc</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-user">&#8203;</em> <em>Netty</em> / Vert.x / All things NIO</li><li><em class="icon-user">&#8203;</em> Author of <em>Netty in Action</em></li><li><em class="icon-twitter">&#8203;</em> @normanmaurer</li><li><em class="icon-github">&#8203;</em> github.com/normanmaurer</li></ul></div></div></section>
+<section class="topic source"><h2>Agenda</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Pipelining</li><li><em class="icon-note">&#8203;</em> Reduce GC Pressure</li><li><em class="icon-note">&#8203;</em> Writing gracefully</li><li><em class="icon-note">&#8203;</em> Buffers best-practises</li><li><em class="icon-note">&#8203;</em> EventLoop</li></ul></div></div></section>
+<section class="topic source"><h2>No Pipelining Optimization</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class HttpHandler extends SimpleChannelInboundHandler&lt;HttpRequest&gt; {
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, HttpRequest req) {
+    ChannelFuture future = ctx.writeAndFlush(createResponse(req)); <i class="conum" data-value="1"></i><b>(1)</b>
+    if (!isKeepAlive(req)) {
+      future.addListener(ChannelFutureListener.CLOSE); <i class="conum" data-value="2"></i><b>(2)</b>
+    }
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td><em>Write</em> to the Channel and <em>flush</em> out to the Socket.</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>After written <em>close</em> Socket</td></tr></table></div></section>
+<section class="topic source"><h2>Pipelining to safe syscalls!</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class HttpPipeliningHandler extends SimpleChannelInboundHandler&lt;HttpRequest&gt; {
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, HttpRequest req) {
+    ChannelFuture future = ctx.writeAnd(createResponse(req)); <i class="conum" data-value="1"></i><b>(1)</b>
+    if (!isKeepAlive(req)) {
+      future.addListener(ChannelFutureListener.CLOSE); <i class="conum" data-value="2"></i><b>(2)</b>
+    }
+  }
+  @Override
+  public void channelReadComplete(ChannelHandlerContext ctx) {
+    ctx.flush(); <i class="conum" data-value="3"></i><b>(3)</b>
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td><em>Write</em> to the <code>Channel</code> (<em>No syscall!</em>) but not flush yet</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>After written <em>close</em> socket</td></tr><tr><td><i class="conum" data-value="3"></i><b>3</b></td><td><em>Flush</em> out to the socket.</td></tr></table></div></section>
+<section class="topic source"><h2>write(msg) , flush() and writeAndFlush(msg)</h2><p><em>write(msg)</em> &#8658; pass through pipeline</p>
+<p><em>flush()</em> &#8658; gathering write of previous written msgs</p>
+<p><em>writeAndFlush()</em> &#8658; short-cut for <em>write(msg)</em> and <em>flush()</em></p>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Limit flushes as much as possible as syscalls are quite expensive.</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">But also limit <code>write(...)</code> as much as possible as it need to traverse the whole pipeline.</td></tr></table></div></section>
+<section class="topic source"><h2>GC-Pressure - Run Collector, run&#8230;</h2><img src="images/gc_pressure.jpg" alt="gc pressure" width="400">
+<div class="literalblock"><pre class="literal">http://25.media.tumblr.com/tumblr_me2eq0PnBx1rtu0cpo1_1280.jpg</pre></div></section>
+<section class="topic source"><h2>GC-Pressure - Reduce object creation by using VoidPromise!</h2><p>Use <code>VoidChannelPromise</code> if possible</p>
+<div class="admonitionblock caution"><table><tr><td class="icon"><i class="icon-caution" title="Caution"></i></td><td class="content"><code>Channel.write(msg)</code></td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content"><code>Channel.write(msg, Channel.voidPromise())</code></td></tr></table></div>
+<div class="admonitionblock important"><table><tr><td class="icon"><i class="icon-important" title="Important"></i></td><td class="content">&#8658; Only do this if you are not interested in the <code>ChannelFuture</code>, and no <code>ChannelOutboundHandler</code> needs to add <code>ChannelFutureListener</code> to it!</td></tr></table></div></section>
+<section class="topic source"><h2>May write too fast!</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class BlindlyWriteHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelActive(ChannelHandlerContext ctx) throws Exception {
+    while(needsToWrite) { <i class="conum" data-value="1"></i><b>(1)</b>
+        ctx.writeAndFlush(createMessage());
+    }
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Writes till <code>needsToWrite</code> returns <code>false</code>.</td></tr></table></div>
+<div class="admonitionblock caution"><table><tr><td class="icon"><i class="icon-caution" title="Caution"></i></td><td class="content">Risk of <em>OutOfMemoryError</em> if writing too fast and having slow receiver!</td></tr></table></div></section>
+<section class="topic source"><h2>Correctly write with respect to slow receivers</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class GracefulWriteHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelActive(ChannelHandlerContext ctx) {
+    writeIfPossible(ctx.channel());
+  }
+  @Override
+  public void channelWritabilityChanged(ChannelHandlerContext ctx) {
+    writeIfPossible(ctx.channel());
+  }
+
+  private void writeIfPossible(Channel channel) {
+    while(needsToWrite &amp;&amp; channel.isWritable()) { <i class="conum" data-value="1"></i><b>(1)</b>
+      channel.writeAndFlush(createMessage());
+    }
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Make proper use of <code>Channel.isWritable()</code> to prevent <em>OutOfMemoryError</em></td></tr></table></div></section>
+<section class="topic source"><h2>Configure high and low write watermarks</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Set sane <em>WRITE_BUFFER_HIGH_WATER_MARK</em> and <em>WRITE_BUFFER_LOW_WATER_MARK</em></td></tr></table></div>
+<div class="listingblock"><div class="title"><code>Server</code></div><pre class="highlight CodeRay"><code class="java">ServerBootstrap bootstrap = new ServerBootstrap();
+bootstrap.childOption(ChannelOption.WRITE_BUFFER_HIGH_WATER_MARK, 32 * 1024);
+bootstrap.childOption(ChannelOption.WRITE_BUFFER_LOW_WATER_MARK, 8 * 1024);</code></pre></div>
+<div class="listingblock"><div class="title"><code>Client</code></div><pre class="highlight CodeRay"><code class="java">Bootstrap bootstrap = new Bootstrap();
+bootstrap.option(ChannelOption.WRITE_BUFFER_HIGH_WATER_MARK, 32 * 1024);
+bootstrap.option(ChannelOption.WRITE_BUFFER_LOW_WATER_MARK, 8 * 1024);</code></pre></div></section>
+<section class="topic source"><h2>Pass custom events through <code>ChannelPipeline</code></h2><div class="listingblock"><div class="title"><code>Your custom events</code></div><pre class="highlight CodeRay"><code class="java">public enum CustomEvents {
+  MyCustomEvent
+}
+
+public class CustomEventHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
+    if (evt == MyCustomEvent) { // do something}
+  }
+}
+
+ChannelPipeline pipeline = channel.pipeline();
+pipeline.fireUserEventTriggered(MyCustomEvent);</code></pre></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Good fit for handshake notifications and more</td></tr></table></div></section>
+<section class="topic source"><h2>ByteToMessageDecoder vs. ReplayingDecoder</h2><p><code>ReplayingDecoder</code> allows easy writing of decoders but is slower than <code>ByteToMessageDecoder</code> as..</p>
+<div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> more overhead in methods</li><li><em class="icon-note">&#8203;</em> needs to handle <code>ReplayingError</code></li></ul></div></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Rule of thumb &#8658; Use <code>ByteToMessageDecoder</code> if it is possible without make things too complicated</td></tr></table></div></section>
+<section class="topic source"><h2>Issues with using non pooled buffers</h2><div class="admonitionblock caution"><table><tr><td class="icon"><i class="icon-caution" title="Caution"></i></td><td class="content">Use unpooled buffers with <em>caution</em>!</td></tr></table></div>
+<div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Allocation / Deallocation is <em>slow</em></li><li><em class="icon-note">&#8203;</em> Free up direct buffers == <em>PITA</em>!</li></ul></div></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content"><em>Use</em> pooled buffers!</td></tr></table></div>
+<div class="listingblock"><pre class="highlight CodeRay"><code class="java">Bootstrap bootstrap = new Bootstrap();
+bootstrap.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
+ServerBootstrap bootstrap = new ServerBootstrap();
+bootstrap.childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);</code></pre></div></section>
+<section class="topic source"><h2>But configure PooledByteBufAllocator</h2><img src="images/condition_pooled.png" alt="condition pooled" width="400">
+<div class="admonitionblock caution"><table><tr><td class="icon"><i class="icon-caution" title="Caution"></i></td><td class="content">Condition because of not enough areas</td></tr></table></div>
+<div class="listingblock"><div class="title"><code>Configure the areas</code></div><pre class="highlight CodeRay"><code class="java">java -Dio.netty.allocator.numDirectArenas=... -Dio.netty.allocator.numHeapArenas=...</code></pre></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">This will be not an issue anymore in next release. Thanks to <a href="https://github.com/netty/netty/pull/2284">Thread-Caches</a> in <code>PooledByteBufAllocator</code>.</td></tr></table></div></section>
+<section class="topic source"><h2>Use Pooling of buffers to reduce allocation / deallocation time!</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Pooling pays off for direct and heap buffers!</td></tr></table></div>
+<img src="images/pooled_buffers.png" alt="pooled buffers" width="400">
+<div class="literalblock"><pre class="literal">https://blog.twitter.com/2013/netty-4-at-twitter-reduced-gc-overhead</pre></div></section>
+<section class="topic source"><h2>Write direct buffers&#8230; <em>Always</em></h2><div class="admonitionblock caution"><table><tr><td class="icon"><i class="icon-caution" title="Caution"></i></td><td class="content">OpenJDK and Oracle JDK copy otherwise to direct buffer by itself!</td></tr></table></div>
+<p>Only use heap buffers if need to operate on byte[]` in <code>ChannelOutboundHandler</code>! By default direct ByteBuf` will be returned by <code>ByteBufAllocator.buffer(...)</code>.</p>
+<p><em>Take this as rule of thumb</em></p></section>
+<section class="topic source"><h2>Find pattern in ByteBuf</h2><div class="listingblock"><div class="title"><code>SlowSearch :(</code></div><pre class="highlight CodeRay"><code class="java">ByteBuf buf = ...;
+int index = -1;
+for (int i = buf.readerIndex(); index == -1 &amp;&amp; i &lt;  buf.writerIndex(); i++) {
+  if (buf.getByte(i) == '\n') {
+    index = i;
+  }
+}</code></pre></div>
+<div class="listingblock"><div class="title"><code>FastSearch :)</code></div><pre class="highlight CodeRay"><code class="java">ByteBuf buf = ...;
+int index = buf.forEachByte(new ByteBufProcessor() {
+  @Override
+  public boolean process(byte value) {
+    return value != '\n';
+  }
+});</code></pre></div></section>
+<section class="topic source"><h2>ByteBufProcessor continues&#8230;</h2><p><code>ByteBufProcessor</code> is faster because it&#8230;</p>
+<div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> can eliminate range checks</li><li><em class="icon-note">&#8203;</em> can be created and shared</li><li><em class="icon-note">&#8203;</em> easier to inline by the JIT</li></ul></div></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Use it whenever you need to find some pattern in a <code>ByteBuf</code></td></tr></table></div></section>
+<section class="topic source"><h2>Other buffer tips</h2><p>Prefer&#8230;</p>
+<div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> alloc() over Unpooled</li><li><em class="icon-note">&#8203;</em> slice(), duplicate() over copy</li><li><em class="icon-note">&#8203;</em> bulk operations over loops</li></ul></div></div></section>
+<section class="topic source"><h2>Messages with Payload? Yes please&#8230;</h2><p><code>ByteBuf</code> payload &#8658; extend <code>DefaultByteBufHolder</code></p>
+<div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> reference-counting for free</li><li><em class="icon-note">&#8203;</em> release resources out-of-the-box</li></ul></div></div>
+<img src="images/thumb_up_2.jpg" alt="thumb up 2" width="180">
+<div class="literalblock"><pre class="literal">http://www.flickr.com/photos/za3tooor/65911648/</pre></div></section>
+<section class="topic source"><h2>File transfer ?</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Use zero-memory-copy for efficient transfer of raw file content</td></tr></table></div>
+<div class="listingblock"><pre class="highlight CodeRay"><code class="java">Channel channel = ...;
+FileChannel fc = ...;
+channel.writeAndFlush(new DefaultFileRegion(fc, 0, fileLength));</code></pre></div>
+<div class="admonitionblock caution"><table><tr><td class="icon"><i class="icon-caution" title="Caution"></i></td><td class="content">This only works if you not need to modify the data on the fly. If so use <code>ChunkedWriteHandler</code> and <code>NioChunkedFile</code>.</td></tr></table></div></section>
+<section class="topic source"><h2>Never block the EventLoop!</h2><div class="admonitionblock caution"><table><tr><td class="icon"><i class="icon-caution" title="Caution"></i></td><td class="content"><code>Thread.sleep()</code></td></tr></table></div>
+<div class="admonitionblock caution"><table><tr><td class="icon"><i class="icon-caution" title="Caution"></i></td><td class="content"><code>CountDownLatch.await()</code> or any other blocking operation from
+<code>java.util.concurrent</code></td></tr></table></div>
+<div class="admonitionblock caution"><table><tr><td class="icon"><i class="icon-caution" title="Caution"></i></td><td class="content">Long-lived computationally intensive operations</td></tr></table></div>
+<div class="admonitionblock caution"><table><tr><td class="icon"><i class="icon-caution" title="Caution"></i></td><td class="content">Blocking operations that might take a while (e.g. DB query)</td></tr></table></div>
+<img src="images/site_blocked.jpg" alt="site blocked" width="80">
+<div class="literalblock"><pre class="literal">http://www.flickr.com/photos/za3tooor/65911648/</pre></div></section>
+<section class="topic source"><h2>EventLoop extends ScheduledExecutorService, so use it!</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Schedule and execute tasks via EventLoop this reduces the needed Threads and also makes sure it&#8217;s Thread-safe</td></tr></table></div>
+<img src="images/schedule.jpg" alt="schedule" width="250">
+<div class="literalblock"><pre class="literal">http://www.flickr.com/photos/mbiddulph/3203780308/</pre></div></section>
+<section class="topic source"><h2>Re-use EventLoopGroup if you can!</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">Bootstrap bootstrap = new Bootstrap().group(new NioEventLoopGroup());
+Bootstrap bootstrap2 = new Bootstrap().group(new NioEventLoopGroup());</code></pre></div>
+<div class="listingblock"><div class="title"><code>Share EventLoopGroup between different Bootstraps</code></div><pre class="highlight CodeRay"><code class="java">EventLoopGroup group = new NioEventLoopGroup();
+Bootstrap bootstrap = new Bootstrap().group(group);
+Bootstrap bootstrap2 = new Bootstrap().group(group);</code></pre></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content"><em>Sharing</em> the same <code>EventLoopGroup</code> allows to keep the resource usage (like Thread-usage) to a minimum.</td></tr></table></div></section>
+<section class="topic source"><h2>Proxy like application with context-switching issue</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class ProxyHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelActive(ChannelHandlerContext ctx) { <i class="conum" data-value="1"></i><b>(1)</b>
+    final Channel inboundChannel = ctx.channel();
+    Bootstrap b = new Bootstrap();
+    b.group(new NioEventLooopGroup()); <i class="conum" data-value="2"></i><b>(2)</b>
+    ...
+    ChannelFuture f = b.connect(remoteHost, remotePort);
+    ...
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Called once a new connection was accepted</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>Use a new <code>EventLoopGroup</code> instance to handle the connection to the remote peer</td></tr></table></div>
+<div class="admonitionblock caution"><table><tr><td class="icon"><i class="icon-caution" title="Caution"></i></td><td class="content">Don&#8217;t do this! This will tie up more resources than needed and introduce extra context-switching overhead.</td></tr></table></div></section>
+<section class="topic source"><h2>Proxy like application which reduce context-switching to minimum</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class ProxyHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelActive(ChannelHandlerContext ctx) { <i class="conum" data-value="1"></i><b>(1)</b>
+    final Channel inboundChannel = ctx.channel();
+    Bootstrap b = new Bootstrap();
+    b.group(inboundChannel.eventLoop()); <i class="conum" data-value="2"></i><b>(2)</b>
+    ...
+    ChannelFuture f = b.connect(remoteHost, remotePort);
+    ...
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Called once a new connection was accepted</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>Share the same <code>EventLoop</code> between both Channels. This means all IO for both connected Channels are handled by the same Thread.</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Always <em>share</em> EventLoop in those Applications</td></tr></table></div></section>
+<section class="topic source"><h2>Combine operations when call from outside the <code>EventLoop</code></h2><div class="listingblock"><div class="title"><code>Not recommended!</code></div><pre class="highlight CodeRay"><code class="java">channel.write(msg1);
+channel.writeAndFlush(msg3);</code></pre></div>
+<div class="listingblock"><div class="title"><code>Combine for the WIN!</code></div><pre class="highlight CodeRay"><code class="java">channel.eventLoop().execute(new Runnable() {
+  @Override
+  public void run() {
+    channel.write(msg1);
+    channel.writeAndFlush(msg3);
+  }
+});</code></pre></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Always <em>combine</em> operations if possible when act on the <code>Channel</code> from outside the <code>EventLoop</code> to reduce overhead of wakeups and object creation!</td></tr></table></div></section>
+<section class="topic source"><h2>Operations from inside ChannelHandler</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class YourHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelActive(ChannelHandlerContext ctx) {
+    // BAD (most of the times)
+    ctx.channel().writeAndFlush(msg); <i class="conum" data-value="1"></i><b>(1)</b>
+
+    // GOOD
+    ctx.writeAndFlush(msg); <i class="conum" data-value="2"></i><b>(2)</b>
+   }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td><code>Channel.*</code> methods  &#8658; the operation will start at the tail of the <code>ChannelPipeline</code></td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td><code>ChannelHandlerContext.* methods =&gt;  the operation will start from this `ChannelHandler</code> to flow through the <code>ChannelPipeline</code>.</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Use the shortest <em>path</em> as possible to get the maximal performance.</td></tr></table></div></section>
+<section class="topic source"><h2>Share ChannelHandlers if stateless</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">@ChannelHandler.Shareable <i class="conum" data-value="1"></i><b>(1)</b>
+public class StatelessHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelActive(ChannelHandlerContext ctx) {
+    logger.debug("Now client from " + ctx.channel().remoteAddress().toString());
+   }
+}
+
+public class MyInitializer extends ChannelInitializer&lt;Channel&gt; {
+  private static final ChannelHandler INSTANCE = new StatelessHandler();
+  @Override
+  public void initChannel(Channel ch) {
+    ch.pipeline().addLast(INSTANCE);
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Annotate <code>ChannelHandler</code> that are stateless with <code>@ChannelHandler.Shareable</code> and use the same instance accross Channels to reduce GC.</td></tr></table></div></section>
+<section class="topic source"><h2>Remove ChannelHandler once not needed anymore</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class OneTimeHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelActive(ChannelHandlerContext ctx) {
+    doOneTimeAction();
+    ctx.channel().pipeline().remove(this); <i class="conum" data-value="1"></i><b>(1)</b>
+   }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Remove <code>ChannelHandler</code> once not needed anymore.</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">This keeps the <code>ChannelPipeline</code> as <em>short</em> as possible and so <em>eliminate overhead</em> of traversing as much as possible.</td></tr></table></div></section>
+<section class="topic source"><h2>Use proper buffer type in MessageToByteEncoder</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class EncodeActsOnByteArray extends MessageToByteEncoder&lt;YourMessage&gt; {
+  public EncodeActsOnByteArray() { super(false); } <i class="conum" data-value="1"></i><b>(1)</b>
+  @Override
+  public encode(ChannelHandlerContext ctx, YourMessage msg, ByteBuf out) {
+    byte[] array = out.array(); <i class="conum" data-value="2"></i><b>(2)</b>
+    int offset = out.arrayOffset() + out.writerIndex();
+    out.writeIndex(out.writerIndex() + encode(msg, array, offset)); <i class="conum" data-value="3"></i><b>(3)</b>
+  }
+  private int encode(YourMessage msg, byte[] array, int offset, int len) { ... }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Ensure <em>heap buffers</em> are used when pass into <code>encode(...)</code> method. This way you can access the backing array directly</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>Access the <em>backing array</em> and also calculate offset</td></tr><tr><td><i class="conum" data-value="3"></i><b>3</b></td><td>Update <em>writerIndex</em> to reflect written bytes</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">This saves extra byte copies.</td></tr></table></div></section>
+<section class="topic source"><h2>To auto-read or not to auto-read</h2><p>By default Netty will keep on reading data from the <code>Channel</code> once something is ready.</p>
+<div class="listingblock"><div class="title"><code>Need more fine grained control ?</code></div><pre class="highlight CodeRay"><code class="java">channel.config().setAutoRead(false); <i class="conum" data-value="1"></i><b>(1)</b>
+channel.read(); <i class="conum" data-value="2"></i><b>(2)</b>
+channel.config().setAutoRead(true); <i class="conum" data-value="3"></i><b>(3)</b></code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Disable auto read == no more data will be read automatically of this <code>Channel</code>.</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>Tell the <code>Channel</code> to do one read operation once new data is ready</td></tr><tr><td><i class="conum" data-value="3"></i><b>3</b></td><td>Enable again auto read == Netty will automatically read again</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">This can also be quite useful when writing proxy like applications!</td></tr></table></div></section>
+<section class="topic source"><h2>SSL - Don&#8217;t use JDKs SSLEngine if performance matters</h2><div class="admonitionblock caution"><table><tr><td class="icon"><i class="icon-caution" title="Caution"></i></td><td class="content">JDKs <code>SSLEngine</code> is just too slow and produces <em>too much GC</em> :(</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Use Twitters <em>OpenSSL</em> based <code>SSLEngine</code>. For details how to compile check <a href="https://github.com/twitter/finagle/tree/master/finagle-native">Finagle native module</a>.</td></tr></table></div>
+<div class="listingblock"><pre class="highlight CodeRay"><code class="java">import com.twitter.finagle.ssl.Ssl;
+...
+
+SSLEngine engine = Ssl.server("/path/to/cert.pem", "/path/to/key.pem", "/path/to/cachain.pem", null, null).self();
+pipeline.addLast("ssl", new SslHandler(engine));</code></pre></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Netty will ship an <em>OpenSSL</em> based <code>SslHandler</code> by it own soon.</td></tr></table></div></section>
+<section class="topic source"><h2>Misc stuff&#8230;</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">You never know when <code>ChannelFuture</code> will be notified.</td></tr></table></div>
+<div class="listingblock"><div class="title"><code>Bad</code></div><pre class="highlight CodeRay"><code class="java">public class OuterClass {
+  private final HeavyObject instance = ....;
+  public void write() { channel.writeAndFlush(msg).addListener(
+      new ChannelFutureListener() { ...}); }
+}</code></pre></div>
+<div class="listingblock"><div class="title"><code>Good</code></div><pre class="highlight CodeRay"><code class="java">public class OuterClass {
+  private final HeavyObject instance = ....;
+  public void write() { channel.writeAndFlush(msg).addListener(new ListenerImpl()); }
+
+  private static final class ListenerImpl implements ChannelFutureListener { ... }
+}</code></pre></div></section>
+<section class="topic source"><h2>Native Transport for less GC and lower latency&#8230;</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Less GC as NIO</li><li><em class="icon-note">&#8203;</em> Less synchronization</li><li><em class="icon-note">&#8203;</em> Edge-Triggered!</li><li><em class="icon-note">&#8203;</em> Supports <em>TCP_CORK</em></li></ul></div></div>
+<div class="admonitionblock caution"><table><tr><td class="icon"><i class="icon-caution" title="Caution"></i></td><td class="content">Only works on Linux as epoll is supported atm. May change in the future</td></tr></table></div></section>
+<section class="topic source"><h2>Switching to native transport is easy</h2><div class="listingblock"><div class="title"><code>Using NIO transport</code></div><pre class="highlight CodeRay"><code class="java">Bootstrap bootstrap = new Bootstrap().group(new NioEventLoopGroup());
+bootstrap.channel(NioSocketChannel.class);</code></pre></div>
+<div class="listingblock"><div class="title"><code>Using native transport</code></div><pre class="highlight CodeRay"><code class="java">Bootstrap bootstrap = new Bootstrap().group(new EpollEventLoopGroup());
+bootstrap.channel(EpollSocketChannel.class);</code></pre></div></section>
+<section class="topic source"><h2>Want to know more?</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Buy my book <a href="http://www.manning.com/maurer/">Netty in Action</a> and make me <em>RICH</em>.</td></tr></table></div>
+<img src="images/maurer_cover150.jpg" alt="maurer cover150" width="100">
+<div class="literalblock"><pre class="literal">http://www.manning.com/maurer</pre></div>
+<p><em>$ KA-CHING $</em></p></section>
+<section class="topic source"><h2>References</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Netty - <a href="http://netty.io">http://netty.io</a></td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Slides generated with Asciidoctor and DZSlides backend</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Original slide template - Dan Allen &amp; Sarah White</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">All pictures licensed with <code>Creative Commons Attribution</code> or<br>
+<code>Creative Commons Attribution-Share Alike</code></td></tr></table></div></section>
+<section class="topic ending"><h2 class="name">Norman Maurer</h2><p class="footer"><em class="icon-twitter">&#8203;</em> @normanmaurer</p></section><script src="./dzslides/core/dzslides.js"></script><script src="./dzslides/highlight/highlight.pack.js"></script><script>hljs.initHighlightingOnLoad()</script></body></html>
