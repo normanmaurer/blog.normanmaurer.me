@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>The thoughts of Norman Maurer and more</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <style>
+      body {
+        padding-top: 60px;
+      }
+    </style>
+    <link href="http://normanmaurer.me/stylesheets/styles.css" rel="stylesheet" type="text/css">
+    <link href="/blog.atom" rel="alternate" type="application/atom+xml">
+    <!--[if lt IE 9]>
+      <script src="//html5shim.googlecode.com/svn/trunk/html5.js" type="text/javascript"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="http://normanmaurer.me"></a>
+          <ul class="nav">
+            <li>
+              <a href="http://normanmaurer.me">Home</a>
+            </li>
+            <li>
+              <a href="http://normanmaurer.me/blog">Blog</a>
+            </li>
+            <li>
+              <a href="http://normanmaurer.me/presentations">Presentations</a>
+            </li>
+            <li>
+              <a href="http://normanmaurer.me/projects">OpenSource Projects</a>
+            </li>
+            <li>
+              <a href="https://twitter.com/normanmaurer">
+                <img src="/images/twitter-bird-light-bgs.png" style="width: 24px;">
+              </a>
+            </li>
+            <li>
+              <a href="https://github.com/normanmaurer">
+                <img src="/images/GitHub-Mark-32px.png" style="width: 18px;">
+              </a>
+            </li>
+            <li>
+              <a href="http://www.linkedin.com/in/normanmaurer">
+                <img src="/images/InBug-30px-R.png" style="width: 24px;">
+              </a>
+            </li>
+            <li>
+              <a href="https://speakerdeck.com/normanmaurer">
+                <img src="/images/speakerdeck.png" style="width: 24px;">
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+      <div id="content">
+        <article>
+          <header class="page-header">
+            <h1 class="title">
+              <a>Reactive Streams</a>
+            </h1>
+            <div class="meta">
+              <time>April 17, 2014</time>
+            </div>
+          </header>
+          <div class="content">
+            
+            <p>As some of you may hopefully noticed, today <a href="http://www.reactive-streams.org">Reactive Streams</a> was announced and left stealth-mode. The idea of the <a href="http://www.reactive-streams.org">Reactive Streams</a> project is to provide a well defined SPI/API for asynchronous processing of data with back pressure built in. This will make it quite easy to bridge different asynchronous frameworks together and so pass data from one to the other and vice versa.  And all will backpressure etc working out of the box without the need to have it implement by the user himself. </p>
+            
+            <h1 id="vertx-and-reactive-streams">Vert.x and Reactive Streams</h1>
+            <p>As <a href="http://vertx.io">Vert.x</a> is one of these asynchronous frameworks / platforms that runs on the JVM we are already working on a prototype that allows <a href="http://vertx.io">Vert.x</a> to be used with the propsed SPI/API. While the prototype is currently mainly focused on the AsyncFile I'm quite certain that other areas of <a href="http://vertx.io">Vert.x</a> will follow once all the details are worked out and the SPI/API has stabilized.</p>
+            
+            <p>Providing such a unified abstraction offers a lot of freedom to the user and simplifies the use of different projects that implement it.</p>
+            
+            <p>For example once <a href="http://vertx.io">Vert.x</a>, <a href="http://akka.io">Akka</a>, <a href="https://github.com/Netflix/RxJava">RxJava</a> and <a href="https://github.com/reactor/reactor">Reactor</a> all support it, passing data from one to the others would be as easy as here: </p>
+            
+            <pre class="syntax java">&#x000A;vertx.fileSystem().open("/path/to/file", new Handler&lt;AsyncResult&lt;AsyncFile&gt;&gt;() {&#x000A;    @Override&#x000A;    public void handle(AsyncResult&lt;AsyncFile&gt; result) {&#x000A;        if (result.successed()) {&#x000A;            AsyncFile file = result.result();&#x000A;            file.produceTo(akkaStream).produceTo(rxjavaObservable).produceTo(reactorStream);&#x000A;        } else {&#x000A;            // handle error&#x000A;        }&#x000A;    }&#x000A;});&#x000A;</pre>
+            
+            <p>All this processing is handled in an async manner and back pressure is applied. So stay tuned for more news on Reactive Streams, exciting times ahead.</p>
+            
+            <h1 id="so-what-">So what ?</h1>
+            <p>Being part of such a movement is a big honour for me and I am looking forward to help shape the future of asynchronous processing. Special thanks to <a href="https://www.typesafe.com">Typesafe</a> for driving the effort at the first place and <a href="http://www.redhat.com">Red Hat</a> for allowing me to spend time on it.</p>
+          </div>
+        </article>
+        <ul class="pager">
+          <li class="previous">
+            <a href="../../../../blog/2014/01/07/JNI-Performance-Welcome-to-the-dark-side/">&larr; Older</a>
+          </li>
+          <li>
+            <a href="../../../../index.html">List all blog posts</a>
+          </li>
+          <li class="next disabled">
+            <a href="#">Newer &rarr;</a>
+          </li>
+        </ul>
+      </div>
+      <div class="comments">
+        
+                    <div id="disqus_thread"></div>
+                    <script type="text/javascript">
+                    var disqus_shortname = 'normanmaurer';
+                    var disqus_url = "http://normanmaurer.me/blog/2014/04/17/Reactive-Streams/";
+                    var disqus_developer = null;
+                    var disqus_identifier = null;
+                    (function() {
+                      var dsq = document.createElement("script"); dsq.type = "text/javascript"; dsq.async = true;
+                      dsq.src = "http://normanmaurer.disqus.com/embed.js";
+                      (document.getElementsByTagName("head")[0] || document.getElementsByTagName("body")[0]).appendChild(dsq);
+                    })();
+                    </script>
+                    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript=normanmaurer">comments powered by Disqus.</a></noscript>
+      </div>
+      <hr>
+      <footer>
+        <div class="row">
+          <div class="span">
+            <p>&copy; Norman Maurer 2013 - 2014</p>
+          </div>
+          <div class="span">
+            <a href="http://normanmaurer.me/blog.atom">Subscribe RSS Feed</a>
+          </div>
+        </div>
+      </footer>
+      <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js" type="text/javascript"></script>
+      <script src="http://normanmaurer.me/javascripts/bootstrap-collapse.js" type="text/javascript"></script>
+      <script src="http://normanmaurer.me/javascripts/jquery-syntax/jquery.syntax.min.js" type="text/javascript"></script>
+      <script>
+        $($.syntax({blockLayout: 'plain'}))
+      </script>
+    </div>
+  </body>
+</html>
+<script type="text/javascript">
+var _gaq = _gaq || [];
+_gaq.push(['_setAccount','UA-45259657-1']);
+_gaq.push(['_trackPageview']);
+(function() {
+ var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+ ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+ var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+})();
+</script>
