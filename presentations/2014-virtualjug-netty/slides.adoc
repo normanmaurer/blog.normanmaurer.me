@@ -1,0 +1,549 @@
+= _Netty_  - The async event-driven network application framework
+@virtualJUG 2014 ; 2014/05/06
+include::attributes.adoc[]
+
+:experimental:
+:toc2:
+:sectanchors:
+:idprefix:
+:idseparator: -
+:icons: font
+:source-highlighter: coderay
+
+[.topic.source]
+== Norman Maurer, Principal Software Engineer @ Red Hat Inc
+
+====
+* [icon-user]'{zwsp}' Leading __Netty__ effort at Red Hat
+* [icon-user]'{zwsp}' Vert.x / NIO / Performance 
+* [icon-user]'{zwsp}' Author of __Netty in Action__
+* [icon-twitter]'{zwsp}' @normanmaurer
+* [icon-github]'{zwsp}' github.com/normanmaurer
+====
+
+[.topic.source]
+== Agenda
+
+====
+* [icon-note]'{zwsp}' What is Netty
+* [icon-note]'{zwsp}' Features
+* [icon-note]'{zwsp}' Buffers
+* [icon-note]'{zwsp}' EventLoop
+
+
+====
+
+[.topic.source]
+== What is __Netty__ ?
+
+"Netty is a NIO client server framework which enables quick and easy development of network applications ..."
+-- Netty Website
+
+[.topic.source]
+== Features __Netty__ comes with...
+
+image::components.png[]
+
+
+[.topic.source]
+== Overview
+
+====
+* [icon-note]'{zwsp}' Asynchronous
+* [icon-note]'{zwsp}' Unified API
+* [icon-note]'{zwsp}' High-Performance
+* [icon-note]'{zwsp}' Buffer Pooling
+* [icon-note]'{zwsp}' Gathering / Scattering
+
+====
+
+[.topic.source]
+== Asynchronous and non blocking by nature
+
+====
+* [icon-note]'{zwsp}' I/O Operations don't block at all!
+* [icon-note]'{zwsp}' Notified later
+* [icon-note]'{zwsp}' Share one Thread
+====
+
+"Don't call us, we'll call you."
+-- Hollywood principle
+
+[.topic.source]
+== But why non-blocking at all ?
+
+WARNING: Usually a Thread takes memory from 256kb to 1mb for the stack space! Also a lot of wasted resources...
+
+image::ouch.jpg[width=250]
+....
+http://www.flickr.com/photos/bibi/5204647994/
+....
+
+
+[.topic.source]
+== Transports - We have a lot of them!
+
+====
+* [icon-note]'{zwsp}' NIO
+* [icon-note]'{zwsp}' OIO
+* [icon-note]'{zwsp}' Local
+* [icon-note]'{zwsp}' Embedded
+* [icon-note]'{zwsp}' Native (only on linux)
+====
+
+[.topic.source]
+== Supported transport protocols
+
+====
+* [icon-note]'{zwsp}' TCP
+* [icon-note]'{zwsp}' UDP (Datagram / Multicast)
+* [icon-note]'{zwsp}' UDT
+* [icon-note]'{zwsp}' Serial
+* [icon-note]'{zwsp}' SCTP (only on linux)
+====
+
+[.topic.source]
+== Simple state model
+
+image::state.png[width=400]
+
+WARNING: Once a `Channel was closed it can't be reused.
+
+
+[.topic.source]
+== States during lifetime of a Channel
+
+image::state_2.png[width=400]
+
+TIP: You can even deregister / re-register a `Channel`!
+
+
+[.topic.source]
+== __ByteBuf__ - ByteBuffer on steroids!
+
+====
+* [icon-note]'{zwsp}' Separate index for reader/writer
+* [icon-note]'{zwsp}' Direct, Heap and Composite
+* [icon-note]'{zwsp}' Resizable with max capacity
+* [icon-note]'{zwsp}' Reference counting
+====
+
+[source,java]
+----
+ByteBuf buf = ...;
+buf.writeInt(1).writeBytes(data).writeBoolean(true)...
+----
+
+[.topic.source]
+== ByteBuf pooling to reduce allocation / deallocation time!
+
+TIP: Pooling pays off for direct and heap buffers!
+
+image::pooled_buffers.png[width=400]
+....
+https://blog.twitter.com/2013/netty-4-at-twitter-reduced-gc-overhead
+....
+
+
+[.topic.source]
+== __ChannelHandler__ - Where your handling logic lifes
+
+====
+* [icon-note]'{zwsp}' Inbound and Outbound
+* [icon-note]'{zwsp}' Called by the `EventExecutor
+====
+
+image::channel_handlers.png[width=400]
+
+
+[.topic.source]
+== __ChannelHandler__ - Use cases
+
+====
+* [icon-note]'{zwsp}' Convert data
+* [icon-note]'{zwsp}' Business logic
+* [icon-note]'{zwsp}' React on state changes
+====
+
+
+[.topic.source]
+== __ChannelInboundHandler__ - Events to handle
+
+[source,java]
+.+ChannelInboundHandler+
+----
+void channelRegistered(...) throws Exception; 
+void channelUnregistered(C...) throws Exception;
+void channelActive(...) throws Exception; 
+void channelInactive(...) throws Exception;
+void channelRead(...) throws Exception;
+void channelReadComplete(...) throws Exception;
+void userEventTriggered(...) throws Exception;
+void channelWritabilityChanged(...) throws Exception;
+void exceptionCaught(...) throws Exception;
+----
+
+NOTE: These methods are called once there is something to handle by netty itself.
+
+[.topic.source]
+== __ChannelOutboundHandler__ - Events to handle
+
+[source,java]
+.+ChannelOutboundHandler+
+----
+void bind(..., ChannelPromise promise) throws Exception; 
+void connect(..., ChannelPromise promise) throws Exception;
+void disconnect(..., ChannelPromise promise) throws Exception;
+void close(..., ChannelPromise promise) throws Exception;
+void deregister(..., ChannelPromise promise) throws Exception;
+void read(...) throws Exception;
+void write(..., ChannelPromise promise) throws Exception;
+void flush(...) throws Exception;
+----
+
+NOTE: These methods are called once a User requests some action via for example `Channel.close(...)`.
+
+[.topic.source]
+== Calling methods directly vs. fire event objects
+
+NOTE: Helps against GC pressure...
+
+image::gc_pressure.jpg[width=400]
+....
+http://25.media.tumblr.com/tumblr_me2eq0PnBx1rtu0cpo1_1280.jpg
+....
+
+
+[.topic.source]
+== __ChannelHandler__ in Action
+
+[source,java]
+----
+@Sharable
+public class EchoHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, Object msg) { <1>
+    ctx.writeAndFlush(msg);
+  }
+
+  @Override
+  public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) { <2>
+    cause.printStacktrace();
+    ctx.close();
+  }
+}
+----
+<1> Intercept received message and write it back to the remote peer
+<2> React on `Throwable` and close the connection
+
+[.topic.source]
+== Provided Encoder / Decoder
+
+====
+* [icon-note]'{zwsp}' HTTP / HTTP2 (*WIP)
+* [icon-note]'{zwsp}' WebSockets
+* [icon-note]'{zwsp}' SPDY
+* [icon-note]'{zwsp}' SSL / TLS
+* [icon-note]'{zwsp}' Serialization
+* [icon-note]'{zwsp}' GZip / Deflate 
+====
+
+[.topic.source]
+== Decoder base classes  => __Inbound__
+
+NOTE: ByteToMessageDecoder
+
+[source,java]
+.+Bytes -> Pojo with handling of buffering+
+----
+public class ByteToMessageDecoderImpl extends ByteToMessageDecoder {
+  @Override
+  public void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) { }
+}
+----
+
+NOTE: MessageToMessageDecoder
+
+[source,java]
+.+Pojo -> Pojo+
+----
+public class MessageToMessageDecoderImpl extends ByteToMessageDecoder<Pojo> {
+  @Override
+  public void decode(ChannelHandlerContext ctx, Pojo in, List<Object> out) { }
+}
+----
+
+[.topic.source]
+== Encoder base classes => __Outbound__
+
+NOTE: MessageToByteEncoder
+
+[source,java]
+.+Pojo -> Bytes+
+----
+public class MessageToByteEncoderImpl extends MessageToByteEncoder<Pojo> {
+  @Override
+  public void encode(ChannelHandlerContext ctx, Pojo in, ByteBuf out) { }
+}
+----
+
+NOTE: MessageToMessageEncoder
+
+[source,java]
+.+Pojo -> Pojo+
+----
+public class MessageToMessageEncoderImpl extends MessageToMessageEncoder<Pojo> {
+  @Override
+  public void encode(ChannelHandlerContext ctx, Pojo in, List<Object> out) { }
+}
+----
+
+[.topic.source]
+== Generic useful Decoders
+
+====
+* [icon-note]'{zwsp}' ReplayDecoder
+* [icon-note]'{zwsp}' FixedLengthFrameDecoder
+* [icon-note]'{zwsp}' LengthFieldBasedFrameDecoder
+* [icon-note]'{zwsp}' LineBaseFrameDecoder
+* [icon-note]'{zwsp}' DelimiterBasedFrameDecoder
+====
+
+[.topic.source]
+== __ChannelPipeline__ - Assemble ChannelHandlers
+
+====
+* [icon-note]'{zwsp}' Holds `ChannelHandlers`
+* [icon-note]'{zwsp}' Per `Channel
+* [icon-note]'{zwsp}' Events pass through
+* [icon-note]'{zwsp}' On-the-fly-modifications
+====
+
+[source,sh]
+.+Kind of a unix-pipe-like thing...+
+----
+$ echo "Netty is shit...." | sed -e 's/is /is the /'
+                    Netty is the shit....
+
+----
+TIP: You see, everything is adjustable!
+
+[.topic.source]
+== __ChannelPipeline__ - How does it work
+
+image::channel_pipeline.png[width=500]
+....
+Events move through the ChannelPipeline
+....
+
+[.topic.source]
+== __ChannelPipeline__ in Action
+
+[source,java]
+----
+Channel ch = ...;
+ChannelPipeline p = ch.pipeline();
+EventExecutor e1 = new DefaultEventExecutor(16);
+EventExecutor e2 = new DefaultEventExecutor(8);
+
+p.addLast(new MyProtocolCodec()); <1>
+p.addLast(e1, new MyDatabaseAccessingHandler()); <2>
+p.addLast(e2, new MyHardDiskAccessingHandler()); <3>
+----
+<1> Executed in `EventLoop` (and so the `Thread` bound to it)
+<2> Executed in one of the `EventExecutors` of e1
+<3> Executed in one of the `EventExecutors` of e2
+
+[.topic.source]
+== __EventLoop__ - Someone needs to do the heavy work
+
+image::event_loop.jpg[width=500]
+....
+http://www.flickr.com/photos/stavos52093/9645884201/
+....
+
+[.topic.source]
+== __EventLoop__ - Facts
+
+* [icon-note]'{zwsp}' Powers 0-n `Channels`
+* [icon-note]'{zwsp}' Bound to 1 `Thread`
+
+TIP: No need to worry about synchronization
+
+image::thumb_up_2.jpg[width=180]
+....
+http://www.flickr.com/photos/za3tooor/65911648/
+....
+
+[.topic.source]
+== __EventLoop__ - Assigned to Channels
+
+image::eventloop_channel.png[width=400]
+....
+Multiple Channels are assigned to one EventLoop
+....
+
+[.topic.source]
+== __EventLoop__ - All the `ScheduleExecutorService` goodies for free!
+
+image::eventexecutor.png[]
+
+[source,java]
+----
+public class WriteTimeOutHandler extends ChannelOutboundHandlerAdapter {
+  @Override
+  public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+    ctx.write(msg, promise);
+
+    if (!promise.isDone() {
+      ctx.executor().schedule(new WriteTimeoutTask(promise), 30, TimeUnit.SECONDS); <1>
+    }
+  }
+}
+----
+<1> Schedule task for in 30 seconds
+
+[.topic.source]
+== __Bootstrap__ - Start and stop Netty applications
+
+* [icon-note]'{zwsp}' Fluent-API / DSL
+* [icon-note]'{zwsp}' Graceful shutdown
+* [icon-note]'{zwsp}' Unified way to startup
+
+[.topic.source]
+== __ServerBootstrap__ 
+
+[source,java]
+----
+ServerBootstrap b = new ServerBootstrap();
+EventLoopGroup group = new NioEventLoopGroup(numThreads);
+try {
+  b.group(group, group)
+      .channel(NioServerSocketChannel.class)
+      .localAddress(new InetSocketAddress(25))
+      .childHandler(new ChannelInitializer<SocketChannel>() {
+          @Override
+          public void initChannel(SocketChannel ch) {
+            ch.pipeline().addLast(new YourChannelHandler());
+          }
+      });
+  ChannelFuture f = b.bind().sync();
+  f.channel().closeFuture().sync();
+} finally {
+  group.shutdownGracefully();
+}
+----
+
+[.topic.source]
+== __Bootstrap__ 
+
+[source,java]
+----
+Bootstrap b = new Bootstrap();
+EventLoopGroup group = new NioEventLoopGroup(numThreads);
+try { 
+  b.group(group)
+      .channel(NioSocketChannel.class)
+      .remoteAddress(new InetSocketAddress("10.0.0.1", 25))
+      .handler(new ChannelInitializer<SocketChannel>() {            
+        @Override
+        public void initChannel(SocketChannel ch) {  
+          ch.pipeline().addLast(new YourChannelHandler());
+        }
+      });
+  ChannelFuture f = b.connect().sync();
+  f.channel().closeFuture().sync();
+} finally {
+  group.shutdownGracefully();
+}
+----
+
+[.topic.source]
+== __Native Epoll Transport__
+
+* [icon-note]'{zwsp}' Epoll ET
+* [icon-note]'{zwsp}' TCP_CORK, SO_REUSEADDR
+* [icon-note]'{zwsp}' TCP, UDP
+
+image::200px-Tux.svg.png[width=100]
+
+TIP: Can be used for maximal performance on Linux
+
+
+[.topic.source]
+== __Things to come__
+
+* [icon-note]'{zwsp}' Dynamic `Channel` re-register
+* [icon-note]'{zwsp}' `ForkJoinPool` based `EventLoop`
+* [icon-note]'{zwsp}' OpenSSL based `SSLEngine` 
+* [icon-note]'{zwsp}' Metrics
+
+TIP: Check issue tracker to stay up-to-date.
+....
+https://github.com/netty/netty/issues
+....
+
+[.topic.source]
+== Companies using _Netty_!
+
+image::companies.png[width=400]
+
+TIP: ... and many more ...
+
+[.topic.source]
+== (Opensource) Projects using _Netty_!
+
+image::projects.png[width=400]
+
+TIP: ... and many more ...
+
+
+[.topic.source]
+== We love Contributions!
+
+image::empire_wants_you_2.jpg[width=250]
+....
+http://www.flickr.com/photos/legofenris/4499417549/
+....
+
+[.topic.source]
+== __Get Involved__ - We love contributions
+image::netty_logo.png[width=200]
+
+NOTE: Mailinglist - https://groups.google.com/forum/#!forum/netty
+
+NOTE: IRC - #netty irc.freenode.org
+
+NOTE: Website - http://netty.io
+
+NOTE: Source / issue tracker - https://github.com/netty/netty/
+
+
+[.topic.source]
+== Want to know more? 
+
+TIP: Buy my book http://www.manning.com/maurer/[Netty in Action] and make me __RICH__.
+
+image::maurer_cover150.jpg[width=100]
+....
+http://www.manning.com/maurer
+....
+
+__$ KA-CHING $__ 
+[.topic.source]
+== References
+
+NOTE: Netty - http://netty.io
+
+NOTE: Slides generated with Asciidoctor and DZSlides backend
+
+NOTE: Original slide template - Dan Allen & Sarah White
+
+NOTE: All pictures licensed with `Creative Commons Attribution` or +
+`Creative Commons Attribution-Share Alike`
+
+[.topic.ending, hrole="name"]
+== Norman Maurer
+
+[.footer]
+[icon-twitter]'{zwsp}' @normanmaurer
