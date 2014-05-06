@@ -146,7 +146,7 @@ https://blog.twitter.com/2013/netty-4-at-twitter-reduced-gc-overhead
 
 
 [.topic.source]
-== __ChannelHandler__ - Where your handling logic lifes
+== __ChannelHandler__ - Where your handling logic lives
 
 ====
 * [icon-note]'{zwsp}' Inbound and Outbound
@@ -366,7 +366,7 @@ http://www.flickr.com/photos/stavos52093/9645884201/
 == __EventLoop__ - Facts
 
 * [icon-note]'{zwsp}' Powers 0-n `Channels`
-* [icon-note]'{zwsp}' Bound to 1 `Thread`
+* [icon-note]'{zwsp}' Bound to 1 Thread`
 
 TIP: No need to worry about synchronization
 

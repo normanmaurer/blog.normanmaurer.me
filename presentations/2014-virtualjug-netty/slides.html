@@ -20,7 +20,7 @@ buf.writeInt(1).writeBytes(data).writeBoolean(true)...</code></pre></div></secti
 <section class="topic source"><h2>ByteBuf pooling to reduce allocation / deallocation time!</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Pooling pays off for direct and heap buffers!</td></tr></table></div>
 <img src="images/pooled_buffers.png" alt="pooled buffers" width="400">
 <div class="literalblock"><pre class="literal">https://blog.twitter.com/2013/netty-4-at-twitter-reduced-gc-overhead</pre></div></section>
-<section class="topic source"><h2><em>ChannelHandler</em> - Where your handling logic lifes</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Inbound and Outbound</li><li><em class="icon-note">&#8203;</em> Called by the `EventExecutor</li></ul></div></div>
+<section class="topic source"><h2><em>ChannelHandler</em> - Where your handling logic lives</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Inbound and Outbound</li><li><em class="icon-note">&#8203;</em> Called by the `EventExecutor</li></ul></div></div>
 <img src="images/channel_handlers.png" alt="channel handlers" width="400"></section>
 <section class="topic source"><h2><em>ChannelHandler</em> - Use cases</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Convert data</li><li><em class="icon-note">&#8203;</em> Business logic</li><li><em class="icon-note">&#8203;</em> React on state changes</li></ul></div></div></section>
 <section class="topic source"><h2><em>ChannelInboundHandler</em> - Events to handle</h2><div class="listingblock"><div class="title"><code>ChannelInboundHandler</code></div><pre class="highlight CodeRay"><code class="java">void channelRegistered(...) throws Exception;
@@ -99,7 +99,7 @@ p.addLast(e2, new MyHardDiskAccessingHandler()); <i class="conum" data-value="3"
 <div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Executed in <code>EventLoop</code> (and so the <code>Thread</code> bound to it)</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>Executed in one of the <code>EventExecutors</code> of e1</td></tr><tr><td><i class="conum" data-value="3"></i><b>3</b></td><td>Executed in one of the <code>EventExecutors</code> of e2</td></tr></table></div></section>
 <section class="topic source"><h2><em>EventLoop</em> - Someone needs to do the heavy work</h2><img src="images/event_loop.jpg" alt="event loop" width="500">
 <div class="literalblock"><pre class="literal">http://www.flickr.com/photos/stavos52093/9645884201/</pre></div></section>
-<section class="topic source"><h2><em>EventLoop</em> - Facts</h2><ul><li><em class="icon-note">&#8203;</em> Powers 0-n <code>Channels</code></li><li><em class="icon-note">&#8203;</em> Bound to 1 <code>Thread</code></li></ul>
+<section class="topic source"><h2><em>EventLoop</em> - Facts</h2><ul><li><em class="icon-note">&#8203;</em> Powers 0-n <code>Channels</code></li><li><em class="icon-note">&#8203;</em> Bound to 1 Thread`</li></ul>
 <div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">No need to worry about synchronization</td></tr></table></div>
 <img src="images/thumb_up_2.jpg" alt="thumb up 2" width="180">
 <div class="literalblock"><pre class="literal">http://www.flickr.com/photos/za3tooor/65911648/</pre></div></section>
