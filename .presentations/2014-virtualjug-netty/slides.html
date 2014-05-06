@@ -1,0 +1,181 @@
+<!DOCTYPE html><html lang="en" class="aspect-16-9"><head><meta charset="UTF-8"><meta name="generator" content="Asciidoctor 0.1.4, dzslides backend"><title>Netty - The async event-driven network application framework</title><meta name="author" content="@virtualJUG 2014"><link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton:400,700,800,400italic|Cedarville+Cursive"><link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css"><link rel="stylesheet" href="./dzslides/themes/highlight/asciidoctor.css"><link rel="stylesheet" href="./dzslides/themes/style/asciidoctor.css"><style>section:not(.topic) > h2 { display: none;}</style><link rel="stylesheet" href="./dzslides/core/dzslides.css"><link rel="stylesheet" href="./dzslides/themes/transition/fade.css"></head><body><section class="title"><h1><em>Netty</em>  - The async event-driven network application framework</h1><footer><span class="author">@virtualJUG 2014</span><span class="divider">&nbsp;&middot;&nbsp;</span><span class="author">2014/05/06</span></footer></section><section class="topic source"><h2>Norman Maurer, Principal Software Engineer @ Red Hat Inc</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-user">&#8203;</em> Leading <em>Netty</em> effort at Red Hat</li><li><em class="icon-user">&#8203;</em> Vert.x / NIO / Performance</li><li><em class="icon-user">&#8203;</em> Author of <em>Netty in Action</em></li><li><em class="icon-twitter">&#8203;</em> @normanmaurer</li><li><em class="icon-github">&#8203;</em> github.com/normanmaurer</li></ul></div></div></section>
+<section class="topic source"><h2>Agenda</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> What is Netty</li><li><em class="icon-note">&#8203;</em> Features</li><li><em class="icon-note">&#8203;</em> Buffers</li><li><em class="icon-note">&#8203;</em> EventLoop</li></ul></div></div></section>
+<section class="topic source"><h2>What is <em>Netty</em> ?</h2><blockquote><p>Netty is a NIO client server framework which enables quick and easy development of network applications &#8230;</p><br><cite>Netty Website</cite></blockquote></section>
+<section class="topic source"><h2>Features <em>Netty</em> comes with&#8230;</h2><img src="images/components.png" alt="components"></section>
+<section class="topic source"><h2>Overview</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Asynchronous</li><li><em class="icon-note">&#8203;</em> Unified API</li><li><em class="icon-note">&#8203;</em> High-Performance</li><li><em class="icon-note">&#8203;</em> Buffer Pooling</li><li><em class="icon-note">&#8203;</em> Gathering / Scattering</li></ul></div></div></section>
+<section class="topic source"><h2>Asynchronous and non blocking by nature</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> I/O Operations don&#8217;t block at all!</li><li><em class="icon-note">&#8203;</em> Notified later</li><li><em class="icon-note">&#8203;</em> Share one Thread</li></ul></div></div>
+<blockquote><p>Don&#8217;t call us, we&#8217;ll call you.</p><br><cite>Hollywood principle</cite></blockquote></section>
+<section class="topic source"><h2>But why non-blocking at all ?</h2><div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">Usually a Thread takes memory from 256kb to 1mb for the stack space! Also a lot of wasted resources&#8230;</td></tr></table></div>
+<img src="images/ouch.jpg" alt="ouch" width="250">
+<div class="literalblock"><pre class="literal">http://www.flickr.com/photos/bibi/5204647994/</pre></div></section>
+<section class="topic source"><h2>Transports - We have a lot of them!</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> NIO</li><li><em class="icon-note">&#8203;</em> OIO</li><li><em class="icon-note">&#8203;</em> Local</li><li><em class="icon-note">&#8203;</em> Embedded</li><li><em class="icon-note">&#8203;</em> Native (only on linux)</li></ul></div></div></section>
+<section class="topic source"><h2>Supported transport protocols</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> TCP</li><li><em class="icon-note">&#8203;</em> UDP (Datagram / Multicast)</li><li><em class="icon-note">&#8203;</em> UDT</li><li><em class="icon-note">&#8203;</em> Serial</li><li><em class="icon-note">&#8203;</em> SCTP (only on linux)</li></ul></div></div></section>
+<section class="topic source"><h2>Simple state model</h2><img src="images/state.png" alt="state" width="400">
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">Once a `Channel was closed it can&#8217;t be reused.</td></tr></table></div></section>
+<section class="topic source"><h2>States during lifetime of a Channel</h2><img src="images/state_2.png" alt="state 2" width="400">
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">You can even deregister / re-register a <code>Channel</code>!</td></tr></table></div></section>
+<section class="topic source"><h2><em>ByteBuf</em> - ByteBuffer on steroids!</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Separate index for reader/writer</li><li><em class="icon-note">&#8203;</em> Direct, Heap and Composite</li><li><em class="icon-note">&#8203;</em> Resizable with max capacity</li><li><em class="icon-note">&#8203;</em> Reference counting</li></ul></div></div>
+<div class="listingblock"><pre class="highlight CodeRay"><code class="java">ByteBuf buf = ...;
+buf.writeInt(1).writeBytes(data).writeBoolean(true)...</code></pre></div></section>
+<section class="topic source"><h2>ByteBuf pooling to reduce allocation / deallocation time!</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Pooling pays off for direct and heap buffers!</td></tr></table></div>
+<img src="images/pooled_buffers.png" alt="pooled buffers" width="400">
+<div class="literalblock"><pre class="literal">https://blog.twitter.com/2013/netty-4-at-twitter-reduced-gc-overhead</pre></div></section>
+<section class="topic source"><h2><em>ChannelHandler</em> - Where your handling logic lifes</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Inbound and Outbound</li><li><em class="icon-note">&#8203;</em> Called by the `EventExecutor</li></ul></div></div>
+<img src="images/channel_handlers.png" alt="channel handlers" width="400"></section>
+<section class="topic source"><h2><em>ChannelHandler</em> - Use cases</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Convert data</li><li><em class="icon-note">&#8203;</em> Business logic</li><li><em class="icon-note">&#8203;</em> React on state changes</li></ul></div></div></section>
+<section class="topic source"><h2><em>ChannelInboundHandler</em> - Events to handle</h2><div class="listingblock"><div class="title"><code>ChannelInboundHandler</code></div><pre class="highlight CodeRay"><code class="java">void channelRegistered(...) throws Exception;
+void channelUnregistered(C...) throws Exception;
+void channelActive(...) throws Exception;
+void channelInactive(...) throws Exception;
+void channelRead(...) throws Exception;
+void channelReadComplete(...) throws Exception;
+void userEventTriggered(...) throws Exception;
+void channelWritabilityChanged(...) throws Exception;
+void exceptionCaught(...) throws Exception;</code></pre></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">These methods are called once there is something to handle by netty itself.</td></tr></table></div></section>
+<section class="topic source"><h2><em>ChannelOutboundHandler</em> - Events to handle</h2><div class="listingblock"><div class="title"><code>ChannelOutboundHandler</code></div><pre class="highlight CodeRay"><code class="java">void bind(..., ChannelPromise promise) throws Exception;
+void connect(..., ChannelPromise promise) throws Exception;
+void disconnect(..., ChannelPromise promise) throws Exception;
+void close(..., ChannelPromise promise) throws Exception;
+void deregister(..., ChannelPromise promise) throws Exception;
+void read(...) throws Exception;
+void write(..., ChannelPromise promise) throws Exception;
+void flush(...) throws Exception;</code></pre></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">These methods are called once a User requests some action via for example <code>Channel.close(...)</code>.</td></tr></table></div></section>
+<section class="topic source"><h2>Calling methods directly vs. fire event objects</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Helps against GC pressure&#8230;</td></tr></table></div>
+<img src="images/gc_pressure.jpg" alt="gc pressure" width="400">
+<div class="literalblock"><pre class="literal">http://25.media.tumblr.com/tumblr_me2eq0PnBx1rtu0cpo1_1280.jpg</pre></div></section>
+<section class="topic source"><h2><em>ChannelHandler</em> in Action</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">@Sharable
+public class EchoHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, Object msg) { <i class="conum" data-value="1"></i><b>(1)</b>
+    ctx.writeAndFlush(msg);
+  }
+
+  @Override
+  public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) { <i class="conum" data-value="2"></i><b>(2)</b>
+    cause.printStacktrace();
+    ctx.close();
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Intercept received message and write it back to the remote peer</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>React on <code>Throwable</code> and close the connection</td></tr></table></div></section>
+<section class="topic source"><h2>Provided Encoder / Decoder</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> HTTP / HTTP2 (*WIP)</li><li><em class="icon-note">&#8203;</em> WebSockets</li><li><em class="icon-note">&#8203;</em> SPDY</li><li><em class="icon-note">&#8203;</em> SSL / TLS</li><li><em class="icon-note">&#8203;</em> Serialization</li><li><em class="icon-note">&#8203;</em> GZip / Deflate</li></ul></div></div></section>
+<section class="topic source"><h2>Decoder base classes  &#8658; <em>Inbound</em></h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">ByteToMessageDecoder</td></tr></table></div>
+<div class="listingblock"><div class="title"><code>Bytes &#8594; Pojo with handling of buffering</code></div><pre class="highlight CodeRay"><code class="java">public class ByteToMessageDecoderImpl extends ByteToMessageDecoder {
+  @Override
+  public void decode(ChannelHandlerContext ctx, ByteBuf in, List&lt;Object&gt; out) { }
+}</code></pre></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">MessageToMessageDecoder</td></tr></table></div>
+<div class="listingblock"><div class="title"><code>Pojo &#8594; Pojo</code></div><pre class="highlight CodeRay"><code class="java">public class MessageToMessageDecoderImpl extends ByteToMessageDecoder&lt;Pojo&gt; {
+  @Override
+  public void decode(ChannelHandlerContext ctx, Pojo in, List&lt;Object&gt; out) { }
+}</code></pre></div></section>
+<section class="topic source"><h2>Encoder base classes &#8658; <em>Outbound</em></h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">MessageToByteEncoder</td></tr></table></div>
+<div class="listingblock"><div class="title"><code>Pojo &#8594; Bytes</code></div><pre class="highlight CodeRay"><code class="java">public class MessageToByteEncoderImpl extends MessageToByteEncoder&lt;Pojo&gt; {
+  @Override
+  public void encode(ChannelHandlerContext ctx, Pojo in, ByteBuf out) { }
+}</code></pre></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">MessageToMessageEncoder</td></tr></table></div>
+<div class="listingblock"><div class="title"><code>Pojo &#8594; Pojo</code></div><pre class="highlight CodeRay"><code class="java">public class MessageToMessageEncoderImpl extends MessageToMessageEncoder&lt;Pojo&gt; {
+  @Override
+  public void encode(ChannelHandlerContext ctx, Pojo in, List&lt;Object&gt; out) { }
+}</code></pre></div></section>
+<section class="topic source"><h2>Generic useful Decoders</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> ReplayDecoder</li><li><em class="icon-note">&#8203;</em> FixedLengthFrameDecoder</li><li><em class="icon-note">&#8203;</em> LengthFieldBasedFrameDecoder</li><li><em class="icon-note">&#8203;</em> LineBaseFrameDecoder</li><li><em class="icon-note">&#8203;</em> DelimiterBasedFrameDecoder</li></ul></div></div></section>
+<section class="topic source"><h2><em>ChannelPipeline</em> - Assemble ChannelHandlers</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Holds <code>ChannelHandlers</code></li><li><em class="icon-note">&#8203;</em> Per `Channel</li><li><em class="icon-note">&#8203;</em> Events pass through</li><li><em class="icon-note">&#8203;</em> On-the-fly-modifications</li></ul></div></div>
+<div class="listingblock"><div class="title"><code>Kind of a unix-pipe-like thing&#8230;</code></div><pre class="highlight CodeRay"><code class="sh">$ echo "Netty is shit...." | sed -e 's/is /is the /'
+                    Netty is the shit....
+</code></pre></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">You see, everything is adjustable!</td></tr></table></div></section>
+<section class="topic source"><h2><em>ChannelPipeline</em> - How does it work</h2><img src="images/channel_pipeline.png" alt="channel pipeline" width="500">
+<div class="literalblock"><pre class="literal">Events move through the ChannelPipeline</pre></div></section>
+<section class="topic source"><h2><em>ChannelPipeline</em> in Action</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">Channel ch = ...;
+ChannelPipeline p = ch.pipeline();
+EventExecutor e1 = new DefaultEventExecutor(16);
+EventExecutor e2 = new DefaultEventExecutor(8);
+
+p.addLast(new MyProtocolCodec()); <i class="conum" data-value="1"></i><b>(1)</b>
+p.addLast(e1, new MyDatabaseAccessingHandler()); <i class="conum" data-value="2"></i><b>(2)</b>
+p.addLast(e2, new MyHardDiskAccessingHandler()); <i class="conum" data-value="3"></i><b>(3)</b></code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Executed in <code>EventLoop</code> (and so the <code>Thread</code> bound to it)</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>Executed in one of the <code>EventExecutors</code> of e1</td></tr><tr><td><i class="conum" data-value="3"></i><b>3</b></td><td>Executed in one of the <code>EventExecutors</code> of e2</td></tr></table></div></section>
+<section class="topic source"><h2><em>EventLoop</em> - Someone needs to do the heavy work</h2><img src="images/event_loop.jpg" alt="event loop" width="500">
+<div class="literalblock"><pre class="literal">http://www.flickr.com/photos/stavos52093/9645884201/</pre></div></section>
+<section class="topic source"><h2><em>EventLoop</em> - Facts</h2><ul><li><em class="icon-note">&#8203;</em> Powers 0-n <code>Channels</code></li><li><em class="icon-note">&#8203;</em> Bound to 1 <code>Thread</code></li></ul>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">No need to worry about synchronization</td></tr></table></div>
+<img src="images/thumb_up_2.jpg" alt="thumb up 2" width="180">
+<div class="literalblock"><pre class="literal">http://www.flickr.com/photos/za3tooor/65911648/</pre></div></section>
+<section class="topic source"><h2><em>EventLoop</em> - Assigned to Channels</h2><img src="images/eventloop_channel.png" alt="eventloop channel" width="400">
+<div class="literalblock"><pre class="literal">Multiple Channels are assigned to one EventLoop</pre></div></section>
+<section class="topic source"><h2><em>EventLoop</em> - All the <code>ScheduleExecutorService</code> goodies for free!</h2><img src="images/eventexecutor.png" alt="eventexecutor">
+<div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class WriteTimeOutHandler extends ChannelOutboundHandlerAdapter {
+  @Override
+  public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+    ctx.write(msg, promise);
+
+    if (!promise.isDone() {
+      ctx.executor().schedule(new WriteTimeoutTask(promise), 30, TimeUnit.SECONDS); <i class="conum" data-value="1"></i><b>(1)</b>
+    }
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Schedule task for in 30 seconds</td></tr></table></div></section>
+<section class="topic source"><h2><em>Bootstrap</em> - Start and stop Netty applications</h2><ul><li><em class="icon-note">&#8203;</em> Fluent-API / DSL</li><li><em class="icon-note">&#8203;</em> Graceful shutdown</li><li><em class="icon-note">&#8203;</em> Unified way to startup</li></ul></section>
+<section class="topic source"><h2><em>ServerBootstrap</em></h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">ServerBootstrap b = new ServerBootstrap();
+EventLoopGroup group = new NioEventLoopGroup(numThreads);
+try {
+  b.group(group, group)
+      .channel(NioServerSocketChannel.class)
+      .localAddress(new InetSocketAddress(25))
+      .childHandler(new ChannelInitializer&lt;SocketChannel&gt;() {
+          @Override
+          public void initChannel(SocketChannel ch) {
+            ch.pipeline().addLast(new YourChannelHandler());
+          }
+      });
+  ChannelFuture f = b.bind().sync();
+  f.channel().closeFuture().sync();
+} finally {
+  group.shutdownGracefully();
+}</code></pre></div></section>
+<section class="topic source"><h2><em>Bootstrap</em></h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">Bootstrap b = new Bootstrap();
+EventLoopGroup group = new NioEventLoopGroup(numThreads);
+try {
+  b.group(group)
+      .channel(NioSocketChannel.class)
+      .remoteAddress(new InetSocketAddress("10.0.0.1", 25))
+      .handler(new ChannelInitializer&lt;SocketChannel&gt;() {
+        @Override
+        public void initChannel(SocketChannel ch) {
+          ch.pipeline().addLast(new YourChannelHandler());
+        }
+      });
+  ChannelFuture f = b.connect().sync();
+  f.channel().closeFuture().sync();
+} finally {
+  group.shutdownGracefully();
+}</code></pre></div></section>
+<section class="topic source"><h2><em>Native Epoll Transport</em></h2><ul><li><em class="icon-note">&#8203;</em> Epoll ET</li><li><em class="icon-note">&#8203;</em> TCP_CORK, SO_REUSEADDR</li><li><em class="icon-note">&#8203;</em> TCP, UDP</li></ul>
+<img src="images/200px-Tux.svg.png" alt="200px Tux.svg" width="100">
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Can be used for maximal performance on Linux</td></tr></table></div></section>
+<section class="topic source"><h2><em>Things to come</em></h2><ul><li><em class="icon-note">&#8203;</em> Dynamic <code>Channel</code> re-register</li><li><em class="icon-note">&#8203;</em> <code>ForkJoinPool</code> based <code>EventLoop</code></li><li><em class="icon-note">&#8203;</em> OpenSSL based <code>SSLEngine</code></li><li><em class="icon-note">&#8203;</em> Metrics</li></ul>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Check issue tracker to stay up-to-date.</td></tr></table></div>
+<div class="literalblock"><pre class="literal">https://github.com/netty/netty/issues</pre></div></section>
+<section class="topic source"><h2>Companies using <em>Netty</em>!</h2><img src="images/companies.png" alt="companies" width="400">
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">&#8230; and many more &#8230;</td></tr></table></div></section>
+<section class="topic source"><h2>(Opensource) Projects using <em>Netty</em>!</h2><img src="images/projects.png" alt="projects" width="400">
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">&#8230; and many more &#8230;</td></tr></table></div></section>
+<section class="topic source"><h2>We love Contributions!</h2><img src="images/empire_wants_you_2.jpg" alt="empire wants you 2" width="250">
+<div class="literalblock"><pre class="literal">http://www.flickr.com/photos/legofenris/4499417549/</pre></div></section>
+<section class="topic source"><h2><em>Get Involved</em> - We love contributions</h2><img src="images/netty_logo.png" alt="netty logo" width="200">
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Mailinglist - <a href="https://groups.google.com/forum/#!forum/netty">https://groups.google.com/forum/#!forum/netty</a></td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">IRC - #netty irc.freenode.org</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Website - <a href="http://netty.io">http://netty.io</a></td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Source / issue tracker - <a href="https://github.com/netty/netty/">https://github.com/netty/netty/</a></td></tr></table></div></section>
+<section class="topic source"><h2>Want to know more?</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Buy my book <a href="http://www.manning.com/maurer/">Netty in Action</a> and make me <em>RICH</em>.</td></tr></table></div>
+<img src="images/maurer_cover150.jpg" alt="maurer cover150" width="100">
+<div class="literalblock"><pre class="literal">http://www.manning.com/maurer</pre></div>
+<p><em>$ KA-CHING $</em></p></section>
+<section class="topic source"><h2>References</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Netty - <a href="http://netty.io">http://netty.io</a></td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Slides generated with Asciidoctor and DZSlides backend</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Original slide template - Dan Allen &amp; Sarah White</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">All pictures licensed with <code>Creative Commons Attribution</code> or<br>
+<code>Creative Commons Attribution-Share Alike</code></td></tr></table></div></section>
+<section class="topic ending"><h2 class="name">Norman Maurer</h2><p class="footer"><em class="icon-twitter">&#8203;</em> @normanmaurer</p></section><script src="./dzslides/core/dzslides.js"></script><script src="./dzslides/highlight/highlight.pack.js"></script><script>hljs.initHighlightingOnLoad()</script></body></html>
