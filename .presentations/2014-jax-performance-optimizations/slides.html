@@ -1,0 +1,234 @@
+<!DOCTYPE html><html lang="en" class="aspect-16-9"><head><meta charset="UTF-8"><meta name="generator" content="Asciidoctor 0.1.4, dzslides backend"><title>Squeeze out the last 5%</title><link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton:400,700,800,400italic|Cedarville+Cursive"><link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css"><link rel="stylesheet" href="./dzslides/themes/highlight/asciidoctor.css"><link rel="stylesheet" href="./dzslides/themes/style/asciidoctor.css"><style>section:not(.topic) > h2 { display: none;}</style><link rel="stylesheet" href="./dzslides/core/dzslides.css"><link rel="stylesheet" href="./dzslides/themes/transition/fade.css"></head><body><section class="title"><h1><strong>Squeeze</strong> out the last 5%</h1><footer><span class="author"></span></footer></section><section class="topic source"><h2>Norman Maurer, Principal Software Engineer @ Red Hat Inc</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-user">&#8203;</em> Leading <em>Netty</em> effort at Red Hat</li><li><em class="icon-user">&#8203;</em> Vert.x / NIO / Performance</li><li><em class="icon-user">&#8203;</em> Author of <em>Netty in Action</em></li><li><em class="icon-twitter">&#8203;</em> @normanmaurer</li><li><em class="icon-github">&#8203;</em> github.com/normanmaurer</li></ul></div></div></section>
+<section class="topic source"><h2>Agenda</h2><ul><li><em class="icon-note">&#8203;</em> JIT / Inlining</li><li><em class="icon-note">&#8203;</em> GC</li><li><em class="icon-note">&#8203;</em> Padding</li><li><em class="icon-note">&#8203;</em> Unsafe</li><li><em class="icon-note">&#8203;</em> Queues</li><li><em class="icon-note">&#8203;</em> Bitwise Operations</li></ul></section>
+<section class="topic source"><h2>JIT - Just in Time Compiler</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> loop-unrolling</li><li><em class="icon-note">&#8203;</em> rearranging code</li><li><em class="icon-note">&#8203;</em> removing synchronized</li><li><em class="icon-note">&#8203;</em> optimistic locking</li><li><em class="icon-note">&#8203;</em> inlining hot methods</li></ul></div></div></section>
+<section class="topic source"><h2>Loop unrolling</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> JIT may unroll loops</li><li><em class="icon-note">&#8203;</em> eliminate branching</li></ul></div></div>
+<img src="images/unroll.jpg" alt="unroll" width="120">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/st3f4n/3805014022/</pre></div></section>
+<section class="topic source"><h2>Loop unrolling</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> speed up loops</li></ul></div></div>
+<div class="listingblock"><div class="title"><code>May be hard for the JIT to unroll</code></div><pre class="highlight CodeRay"><code class="java">int i = 0;
+for (;;) {
+  if (array.length == i) {
+    break;
+  }
+  doSomething(array[i++]);
+}</code></pre></div></section>
+<section class="topic source"><h2>Loop unrolling - Help the JIT</h2><p>array.length == 4</p>
+<div class="exampleblock"><div class="content"><div class="listingblock"><div class="title"><code>Easy to unroll</code></div><pre class="highlight CodeRay"><code class="java">int i = 0;
+for (int i = 0; i &lt; array.length; i++) {
+  doSomething(array[i]);
+}</code></pre></div></div></div>
+<div class="listingblock"><div class="title"><code>unrolled loop</code></div><pre class="highlight CodeRay"><code class="java">doSomething(array[0]);
+doSomething(array[1]);
+doSomething(array[2]);
+doSomething(array[3]);</code></pre></div></section>
+<section class="topic source"><h2>Inlining - General</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Inline hot methods</li><li><em class="icon-note">&#8203;</em> Eliminate call overhead</li><li><em class="icon-note">&#8203;</em> Only works when small enough</li></ul></div></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Limit for inline hot methods is 325 byte operations per default&#8230;</td></tr></table></div></section>
+<section class="topic source"><h2>Inlining - How it works</h2><div class="exampleblock"><div class="content"><div class="listingblock"><div class="title"><code>Before inlined</code></div><pre class="highlight CodeRay"><code class="java">public void methodA() {
+  ... // Do some work A <i class="conum" data-value="1"></i><b>(1)</b>
+  methodB();
+}
+
+private void methodB() {
+  ... // Do some more work B <i class="conum" data-value="2"></i><b>(2)</b>
+}</code></pre></div></div></div>
+<div class="listingblock"><div class="title"><code>methodB is inlined into methodA</code></div><pre class="highlight CodeRay"><code class="java">public void methodA() {
+  ... // Do some work A <i class="conum" data-value="3"></i><b>(3)</b>
+  ... // Do some more work B <i class="conum" data-value="4"></i><b>(4)</b>
+}</code></pre></div></section>
+<section class="topic source"><h2>Inlining - How you detect</h2><div class="listingblock"><div class="title"><code>Record inline tasks</code></div><pre class="highlight CodeRay"><code class="java">java \
+-XX:+PrintCompilation \ <i class="conum" data-value="1"></i><b>(1)</b>
+-XX:+UnlockDiagnosticVMOptions \ <i class="conum" data-value="2"></i><b>(2)</b>
+-XX:+PrintInlining \ <i class="conum" data-value="3"></i><b>(3)</b>
+.... &gt; inline.log</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Prints out when JIT compilation happens</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>Is needed to use flags like -XX:+PrintInlining</td></tr><tr><td><i class="conum" data-value="3"></i><b>3</b></td><td>Prints what methods were inlined</td></tr></table></div></section>
+<section class="topic source"><h2>Inlining - How you detect</h2><div class="listingblock"><div class="title"><code>inline.log content example</code></div><pre class="highlight CodeRay"><code class="java">@ 42   io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe::read (191 bytes)   inline (hot) <i class="conum" data-value="1"></i><b>(1)</b>
+@ 42   io.netty.channel.nio.AbstractNioMessageChannel$NioMessageUnsafe::read (327 bytes)   hot method too big <i class="conum" data-value="2"></i><b>(2)</b>
+  @ 4   io.netty.channel.socket.nio.NioSocketChannel::config (5 bytes)   inline (hot)
+    @ 1   io.netty.channel.socket.nio.NioSocketChannel::config (5 bytes)   inline (hot)
+  @ 12   io.netty.channel.AbstractChannel::pipeline (5 bytes)   inline (hot)</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Method is <em>hot</em> and was inlined</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>Method is <em>hot</em> and was <em>too big</em> for inlining :(</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">You want to have your hot methods inlined, for max performance when possible!</td></tr></table></div></section>
+<section class="topic source"><h2>Inlining - Before code was optimized</h2><div class="listingblock"><div class="title"><code>Original code which was cause of too big for inlining</code></div><pre class="highlight CodeRay"><code class="java">private final class NioMessageUnsafe extends AbstractNioUnsafe {
+  public void read() {
+    final SelectionKey key = selectionKey();
+    if (!config().isAutoRead()) {
+      int interestOps = key.interestOps();
+      if ((interestOps &amp; readInterestOp) != 0) {
+        // only remove readInterestOp if needed
+        key.interestOps(interestOps &amp; ~readInterestOp);
+      }
+    }
+    ... // rest of the method
+  }
+  ...
+}</code></pre></div></section>
+<section class="topic source"><h2>Inlining - After code was optimized</h2><div class="listingblock"><div class="title"><code>Factor out less likely branch out in new method</code></div><pre class="highlight CodeRay"><code class="java">private final class NioMessageUnsafe extends AbstractNioUnsafe {
+  private void removeReadOp() {
+    SelectionKey key = selectionKey();
+    int interestOps = key.interestOps();
+    if ((interestOps &amp; readInterestOp) != 0) {
+      // only remove readInterestOp if needed
+      key.interestOps(interestOps &amp; ~readInterestOp);
+    }
+  }
+
+  public void read() {
+    if (!config().isAutoRead()) {
+      removeReadOp();
+    }
+    ... // rest of the method
+  }
+  ...
+}</code></pre></div></section>
+<section class="topic source"><h2>Inlining - Result after code change</h2><div class="listingblock"><div class="title"><code>inline.log content after change</code></div><pre class="highlight CodeRay"><code class="java">@ 42   io.netty.channel.nio.AbstractNioMessageChannel$NioMessageUnsafe::read (288 bytes)   inline (hot) <i class="conum" data-value="1"></i><b>(1)</b></code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Method is now small enough for inlining :)</td></tr></table></div></section>
+<section class="topic source"><h2>Inline != Inline &#8230; huh ?</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> public vs. protected vs. private</li><li><em class="icon-note">&#8203;</em> final vs. non-final</li><li><em class="icon-note">&#8203;</em> static vs. non-static</li></ul></div></div>
+<img src="images/type.jpg" alt="type" width="150">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/brears/2685223351</pre></div></section>
+<section class="topic source"><h2>Inline  - Make JIT&#8217;s life easier</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> flat-class hierarchy</li><li><em class="icon-note">&#8203;</em> special handling of two impls.</li></ul></div></div>
+<div class="literalblock"><pre class="literal">http://www.cliffc.org/blog/2007/11/06/clone-or-not-clone/</pre></div></section>
+<section class="topic source"><h2>Inline by hand - if nothing helps</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">You can inline by hand</td></tr></table></div>
+<img src="images/nightmare.jpg" alt="nightmare" width="400">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/tracheotomy_bob/5430166369</pre></div>
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">Only do this if you really need the last percent of performance. This can result in a maintainance nightmare!</td></tr></table></div></section>
+<section class="topic source"><h2>GC - Garbage Collector</h2><img src="images/trash.jpg" alt="trash" width="500">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/stavos52093/13807616194/</pre></div></section>
+<section class="topic source"><h2>Finalizer - No thanks</h2><div class="listingblock"><div class="title"><code>Ouch :(</code></div><pre class="highlight CodeRay"><code class="java">public class YourClass {
+  @Override
+  public void finalize() {
+    // cleanup resources and destroy them
+  }
+}</code></pre></div>
+<div class="listingblock"><div class="title"><code>Better :)</code></div><pre class="highlight CodeRay"><code class="java">public class YourClass {
+  public void destroy() {
+    // cleanup resources and destroy them
+  }
+}</code></pre></div>
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">Overriding finalize() is 99% of the time a very bad idea!</td></tr></table></div></section>
+<section class="topic source"><h2>Finalizer - Welcome to hell</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> more work for the GC</li><li><em class="icon-note">&#8203;</em> never know when it runs</li><li><em class="icon-note">&#8203;</em> ties up GC thread</li><li><em class="icon-note">&#8203;</em> may resurruct object</li></ul></div></div></section>
+<section class="topic source"><h2>WeakReference / SoftReference</h2><img src="images/weak.jpg" alt="weak" width="300">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/counteragent/2190576349</pre></div>
+<div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> more work on GC</li><li><em class="icon-note">&#8203;</em> logic depends on GC</li><li><em class="icon-note">&#8203;</em> GC pressure</li></ul></div></div></section>
+<section class="topic source"><h2>GC - Pressure</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Objects are <em>not</em> for free</li><li><em class="icon-note">&#8203;</em> Datastructures in GC overhead</li></ul></div></div>
+<img src="images/gc_pressure.jpg" alt="gc pressure" width="250">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/tracheotomy_bob/5430166369</pre></div></section>
+<section class="topic source"><h2>Datastructures and GC effect</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> array &#8658; GC friendly</li><li><em class="icon-note">&#8203;</em> linked-list &#8658; GC unfriendly</li></ul></div></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Also pre-fetch works out quite well for array based datastructures, also cache lines etc.</td></tr></table></div></section>
+<section class="topic source"><h2>linked-list made GC-friendly</h2><div class="listingblock"><div class="title"><code>Roll your own linked-list datastructure</code></div><pre class="highlight CodeRay"><code class="java">public class Entry {
+  Entry next; <i class="conum" data-value="1"></i><b>(1)</b>
+  Entry prev;
+  public void methodA() {}
+}
+
+public class EntryList {
+  Entry head; <i class="conum" data-value="2"></i><b>(2)</b>
+  Entry tail;
+  public void add(Entry entry) {}
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Entry itself can be used as node</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>head and tail of the list</td></tr></table></div>
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">Each Entry can hold be added to one EntryList.</td></tr></table></div></section>
+<section class="topic source"><h2>False-sharing</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> contention on same cache-line</li><li><em class="icon-note">&#8203;</em> cache line ~ 64 bytes</li></ul></div></div>
+<img src="images/sharing.jpg" alt="sharing" width="250">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/ryanr/142455033/</pre></div></section>
+<section class="topic source"><h2>False Sharing - Padding to the rescue</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> pad object = own cache-line</li><li><em class="icon-note">&#8203;</em> best done via adding longs</li></ul></div></div>
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">There is <code>@Contended</code> in Java8 but needs to be enabled via switch and not allow to pack multiple objects in one cache-line. This is part of <a href="http://openjdk.java.net/jeps/142">JEP-142</a></td></tr></table></div></section>
+<section class="topic source"><h2>False Sharing - A case-study</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">The following code snippets and diagram is based on <a href="https://twitter.com/mjpt777">Martin Thompsons</a> blog posts <a href="http://mechanical-sympathy.blogspot.de/2011/07/false-sharing.html">False Sharing</a> and <a href="http://mechanical-sympathy.blogspot.de/2011/08/false-sharing-java-7.html">False Sharing &amp;&amp; Java 7</a>.</td></tr></table></div>
+<img src="images/false_sharing.png" alt="false sharing" width="350">
+<div class="literalblock"><pre class="literal">https://twitter.com/normanmaurer/status/465821479012401152</pre></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Credit where credit is due.</td></tr></table></div></section>
+<section class="topic source"><h2>False Sharing - Padding to the rescue</h2><div class="listingblock"><div class="title"><code>False-sharing Test</code></div><pre class="highlight CodeRay"><code class="java">public final class FalseSharing implements Runnable {
+  private static AtomicLong[] longs = new AtomicLong[NUM_THREADS];
+  ....
+  public static void runTest() throws InterruptedException {
+    Thread[] threads = new Thread[NUM_THREADS];
+    for (int i = 0; i &lt; threads.length; i++)
+      threads[i] = new Thread(new FalseSharing(i));
+    for (Thread t : threads) { t.start(); }
+    for (Thread t : threads) { t.join(); }
+  }
+
+  public void run() {
+    long i = ITERATIONS + 1;
+    while (0 != --i) { longs[arrayIndex].set(i); }
+  }
+}</code></pre></div></section>
+<section class="topic source"><h2>False Sharing - No padding</h2><div class="listingblock"><div class="title"><code>AtomicLong without padding</code></div><pre class="highlight CodeRay"><code class="java">public final class FalseSharing implements Runnable {
+  private static AtomicLong[] longs = new AtomicLong[NUM_THREADS];
+  static { 
+    for (int i = 0; i &lt; longs.length; i++) {
+      longs[i] = new AtomicLong();
+    }
+  }
+  ...
+}</code></pre></div></section>
+<section class="topic source"><h2>False Sharing - Padding for AtomicLong</h2><div class="listingblock"><div class="title"><code>AtomicLong with padding</code></div><pre class="highlight CodeRay"><code class="java">public final class FalseSharing implements Runnable {
+  private static PaddedAtomicLong[] longs = new PaddedAtomicLong[NUM_THREADS];
+  static { 
+    for (int i = 0; i &lt; longs.length; i++) {
+      longs[i] = new PaddedAtomicLong();
+    }
+  }
+  ...
+  public static long sumPaddingToPreventOptimisation(final int index) {
+    PaddedAtomicLong v = longs[index];
+    return v.p1 + v.p2 + v.p3 + v.p4 + v.p5 + v.p6;
+  }
+
+  public static class PaddedAtomicLong extends AtomicLong {
+    public volatile long p1, p2, p3, p4, p5, p6 = 7L;
+  }
+}</code></pre></div></section>
+<section class="topic source"><h2>False Sharing - results</h2><img src="images/duration.png" alt="duration" width="500">
+<div class="literalblock"><pre class="literal">http://mechanical-sympathy.blogspot.de/2011/07/false-sharing.html</pre></div></section>
+<section class="topic source"><h2>Unsafe - Welcome to the dark side</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public static Unsafe getUnsafe() {
+  Class cc = sun.reflect.Reflection.getCallerClass(2);
+  if (cc.getClassLoader() != null)
+    throw new SecurityException("Unsafe");
+  return theUnsafe;
+}</code></pre></div>
+<img src="images/unsafe_private.jpg" alt="unsafe private" width="250">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/oldpatterns/6100020538</pre></div></section>
+<section class="topic source"><h2>Unsafe - Swiss-army-knife of Java</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Allows to act on memory address</li><li><em class="icon-note">&#8203;</em> Array operations</li><li><em class="icon-note">&#8203;</em> volatile / atomic operations</li></ul></div></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Can do a lot of things faster then abstractions because of eliminate range checks and allow to access stuff directly via memory addresses etc.</td></tr></table></div></section>
+<section class="topic source"><h2>Unsafe == unsafe</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Easy to segfault JVM</li><li><em class="icon-note">&#8203;</em> unofficial API</li></ul></div></div>
+<img src="images/unsafe.png" alt="unsafe" width="500">
+<div class="literalblock"><pre class="literal">Caution: @lagergren may hunt you down ;)</pre></div></section>
+<section class="topic source"><h2>Unsafe</h2><img src="images/unsafe_danger.png" alt="unsafe danger" width="400">
+<div class="literalblock"><pre class="literal">http://zeroturnaround.com/rebellabs/dangerous-code-how-to-be-unsafe-with-java-classes-objects-in-memory/</pre></div></section>
+<section class="topic source"><h2>Queues - Use the right for the right job</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content"><em>SPSC</em> &#8658; Single Producer Single Consumer</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content"><em>SPMC</em> &#8658; Single Producer Multi Consumer</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content"><em>MPSC</em> &#8658; Multi Producer Single Consumer</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content"><em>MPMC</em> &#8658; Multi Producer Multi Consumer</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Usage pattern is imprtant!</td></tr></table></div></section>
+<section class="topic source"><h2>Queues</h2><div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">All concurrent queues in the JDK are <em>MPMC</em></td></tr></table></div>
+<img src="images/sad.jpg" alt="sad" width="300">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/kirisryche/4350193154</pre></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content"><a href="https://github.com/nitsanw/JAQ-InABox">JAQ-InABox</a> provides some nice alternatives. Say thanks to <a href="https://twitter.com/nitsanw">@nitsanw</a>.</td></tr></table></div></section>
+<section class="topic source"><h2>Atomic*.lazySet(&#8230;) for the win</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Cheap volatile writes, we all love cheap when it comes to performance!</td></tr></table></div>
+<img src="images/lazy.jpg" alt="lazy" width="250">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/vmabney/9431857312</pre></div>
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">Only works for Single Writers a.k.a Single Producers. More details on <a href="http://psy-lob-saw.blogspot.de/2012/12/atomiclazyset-is-performance-win-for.html">Atomic*.lazySet is a performance win for single writers</a> post by <a href="https://twitter.com/nitsanw">@nitsanw</a>.</td></tr></table></div></section>
+<section class="topic source"><h2>Bitwise operations are fast</h2><div class="listingblock"><div class="title"><code>Slow nextIdx(&#8230;) method based on modulo operation</code></div><pre class="highlight CodeRay"><code class="java">private final Object[] array = new Object[128];
+
+private int nextIdx(int index) {
+  return (index + 1) % array.length;
+}</code></pre></div>
+<div class="listingblock"><div class="title"><code>Fast nextIdx(&#8230;) method based on bitwise operation</code></div><pre class="highlight CodeRay"><code class="java">private final Object[] array = new Object[128];
+private final int mask = array.length - 1;
+
+private int nextIdx(int index) {
+  return (index + 1) &amp; mask;
+}</code></pre></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Bitwise operations are most of the times faster then Arithmetic.</td></tr></table></div>
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">Only works for Single Writers a.k.a Single Producers. More details on <a href="http://psy-lob-saw.blogspot.de/2012/12/atomiclazyset-is-performance-win-for.html">Atomic*.lazySet is a performance win for single writers</a> post by <a href="https://twitter.com/nitsanw">@nitsanw</a>.</td></tr></table></div></section>
+<section class="topic source"><h2>More informations on these topics</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content"><a href="http://mechanical-sympathy.blogspot.de">Mechanical Sympathy blog</a> and <a href="https://groups.google.com/forum/#!forum/mechanical-sympathy">Mechanical Sympathy Mailinglist</a></td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content"><a href="http://cs.oswego.edu/pipermail/concurrency-interest/">Concurrency Interest Mailinglist</a></td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content"><a href="http://psy-lob-saw.blogspot.de">Nitsan Wakarts Blog</a></td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content"><a href="http://shipilev.net">Aleksey Shipilevs Blog</a></td></tr></table></div></section>
+<section class="topic source"><h2>So squeeze of the last bit of performance&#8230;</h2><img src="images/squeeze.jpg" alt="squeeze" width="400">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/dolmansaxlil/5347064183</pre></div></section>
+<section class="topic source"><h2>References</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Slides generated with Asciidoctor and DZSlides backend</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Original slide template - Dan Allen &amp; Sarah White</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">All pictures licensed with <code>Creative Commons Attribution</code> or<br>
+<code>Creative Commons Attribution-Share Alike</code></td></tr></table></div></section>
+<section class="topic ending"><h2 class="name">Norman Maurer</h2><p class="footer"><em class="icon-twitter">&#8203;</em> @normanmaurer</p></section><script src="./dzslides/core/dzslides.js"></script><script src="./dzslides/highlight/highlight.pack.js"></script><script>hljs.initHighlightingOnLoad()</script></body></html>

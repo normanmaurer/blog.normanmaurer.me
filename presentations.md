@@ -17,4 +17,5 @@ Here you find various of those. This list is currently not complete but I will t
   * __Netty 4 - A lookup behind the scenes__, EclipseCon NA 2014, Mar 2014:  [Slides](/presentations/2014-eclipsecon-na-netty/slides.html)
   * __Netty Best Practices a.k.a Faster == Better__, Facebook, Mar 2014:  [Slides](/presentations/2014-facebook-eng-netty/slides.html) [Video](https://www.youtube.com/watch?v=_GRIyCMNGGI)
   * __Netty - The async event-driven network application framework__, @VirtualJug, May 2014:  [Slides](/presentations/2014-virtualjug-netty/slides.html)
-
+  * __High performance networking on the JVM - Lessons learned__, JAX, May 2014:  [Slides](/presentations/2014-jax-networking-on-jvm/slides.html)
+  * __Performance Optimizations - Squeeze out the last 5%__, JAX, May 2014:  [Slides](/presentations/2014-jax-performance-optimizations/slides.html)
