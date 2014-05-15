@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>The thoughts of Norman Maurer and more</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <style>
+      body {
+        padding-top: 60px;
+      }
+    </style>
+    <link href="http://normanmaurer.me/stylesheets/styles.css" rel="stylesheet" type="text/css">
+    <link href="/blog.atom" rel="alternate" type="application/atom+xml">
+    <!--[if lt IE 9]>
+      <script src="//html5shim.googlecode.com/svn/trunk/html5.js" type="text/javascript"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="http://normanmaurer.me"></a>
+          <ul class="nav">
+            <li>
+              <a href="http://normanmaurer.me">Home</a>
+            </li>
+            <li>
+              <a href="http://normanmaurer.me/blog">Blog</a>
+            </li>
+            <li>
+              <a href="http://normanmaurer.me/presentations">Presentations</a>
+            </li>
+            <li>
+              <a href="http://normanmaurer.me/projects">OpenSource Projects</a>
+            </li>
+            <li>
+              <a href="https://twitter.com/normanmaurer">
+                <img src="/images/twitter-bird-light-bgs.png" style="width: 24px;">
+              </a>
+            </li>
+            <li>
+              <a href="https://github.com/normanmaurer">
+                <img src="/images/GitHub-Mark-32px.png" style="width: 18px;">
+              </a>
+            </li>
+            <li>
+              <a href="http://www.linkedin.com/in/normanmaurer">
+                <img src="/images/InBug-30px-R.png" style="width: 24px;">
+              </a>
+            </li>
+            <li>
+              <a href="https://speakerdeck.com/normanmaurer">
+                <img src="/images/speakerdeck.png" style="width: 24px;">
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+      <div id="content">
+        <article>
+          <header class="page-header">
+            <h1 class="title">
+              <a>Inline all the Things</a>
+            </h1>
+            <div class="meta">
+              <time>May 15, 2014</time>
+            </div>
+          </header>
+          <div class="content">
+            
+            <p>If you are familiar with the JVM or JIT you may know that there is a little magic happen that is called inlining. Inlining is often mention as one of the most powerful things the JIT can do to optimize your code while it is executed it at the same time.</p>
+            
+            <h4 id="but-what-is-inlining-and-why-the-heck-does-it-make-things-faster">But what is inlining and why the heck does it make things faster?</h4>
+            
+            <p>Inlining is a technique that will basically just "inline" one method in another and so get rid of a method invocation. The JIT automatically detects "hot" methods and try to inline them for you. A method is considered "hot" if it was executed more the X times, where X is a threshold that can be configured using a JVM flag when start up java (10000 is the default). This is needed as inlining all methods would do more harm then anything else, because of the enormous produced byte-code. Beside this the JIT may "revert" previous inlined code when an optimization turns out to be wrong at a later state. Remember the JIT stands for Just in Time and so optimize (which includes inlining but also other things) while execute your code.</p>
+            
+            <p>But even if the JVM consider a method to be "hot" it may not inline it. But why? One of the most likely reasons is that it is just to big to get inlined.
+            How big a hot method can be and still be inlined is defined via the <code>-XX:FreqInlineSize=</code> and is 325 bytecode instructions as default on Linux 64 Bit. The default value is platform dependent. Don't change this number if you are not 100% sure you understand what you are doing and the impact of it!</p>
+            
+            <p>So this gives us the first advice:</p>
+            
+            <p><strong>The JVM loves small methods</strong></p>
+            
+            <p>So if your method is hot but is to big you should think about how you can make it smaller.</p>
+            
+            <p>Now you may wonder yourself how to find out about what is inlined and what not. Fortunally it's quite easy to gather this informations. All you need is some extra JVM flags during startup. Those are:</p>
+            
+            <ul>
+              <li>-XX:+PrintCompilation: Prints out when JIT compilation happens</li>
+              <li>-XX:+UnlockDiagnosticVMOptions: Is needed to use flags like -XX:+PrintInlining</li>
+              <li>-XX:+PrintInlining: Prints what methods were inlined</li>
+            </ul>
+            
+            <p>That's it. With those flags you will get a lot of informations logged to STDOUT, so you should store them in a log file to better analyze later.
+            So with this background let us focus on how you can make the best use out of it.</p>
+            
+            <h4 id="optimize-performance-by-allow-for-inline---a-real-story">Optimize performance by allow for inline - A real story</h4>
+            
+            <p>As most of you may know I'm working on the <a href="http://netty.io">Netty Project</a> as part of my day job. Netty tries to make development of asynchronous network applications easy while still provide an excellent performance. So I often end up running benchmarks as part of my work, which was exactly what I did when came across the "problem". </p>
+            
+            <p>While doing the benchmark I started to wonder how well the JIT kicks in when Netty is used as simple HTTP Server. So I fired up the <a href="https://github.com/netty/netty/tree/master/example/src/main/java/io/netty/example/http/helloworld">Hello World HTTP Server example</a> with the previous mention JVM args like:</p>
+            
+            <pre><code>java -XX:+PrintCompilation -XX:+UnlockDiagnosticVMOptions -XX:+PrintInlining .... &gt; inline.log&#x000A;</code></pre>
+            
+            <p>Now it was time to generate some workload on the HTTP Server so it does some real-world. For this I used one of my prefered benchmarking tools when it comes to HTTP, <a href="https://github.com/netty/wrk/wrk/">wrk</a>.</p>
+            
+            <pre><code>wrk -H 'Host: localhost' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Connection: keep-alive' -d 600 -c 1024 -t 8 http://127.0.0.1:8080/plaintext&#x000A;</code></pre>
+            
+            <p>This basically runs the test for 10 minutes with 1024 concurrent clients. Sending a simple GET request and wait for a response. Nothing fancy here, so moving on ;)</p>
+            
+            <p>After this completed I was about to review the inline.log file. Like I said before the output is really noise and looks like:</p>
+            
+            <pre><code> 66527  370             io.netty.channel.nio.NioEventLoop::processSelectedKeysOptimized (80 bytes)&#x000A;                        @ 14   java.nio.channels.SelectionKey::attachment (5 bytes)   inline (hot)&#x000A;           !            @ 33   io.netty.channel.nio.NioEventLoop::processSelectedKey (120 bytes)   inline (hot)&#x000A;                          @ 1   io.netty.channel.nio.AbstractNioChannel::unsafe (8 bytes)   inline (hot)&#x000A;                            @ 1   io.netty.channel.AbstractChannel::unsafe (5 bytes)   inline (hot)&#x000A;                          @ 6   java.nio.channels.spi.AbstractSelectionKey::isValid (5 bytes)   inline (hot)&#x000A;                          @ 26   sun.nio.ch.SelectionKeyImpl::readyOps (9 bytes)   inline (hot)&#x000A;                            @ 1   sun.nio.ch.SelectionKeyImpl::ensureValid (16 bytes)   inline (hot)&#x000A;                              @ 1   java.nio.channels.spi.AbstractSelectionKey::isValid (5 bytes)   inline (hot)&#x000A;           !              @ 42   io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe::read (191 bytes)   inline (hot)&#x000A;           !              @ 42   io.netty.channel.nio.AbstractNioMessageChannel$NioMessageUnsafe::read (327 bytes)   hot method too big&#x000A;                            @ 4   io.netty.channel.socket.nio.NioSocketChannel::config (5 bytes)   inline (hot)&#x000A;                              @ 1   io.netty.channel.socket.nio.NioSocketChannel::config (5 bytes)   inline (hot)&#x000A;                            @ 12   io.netty.channel.AbstractChannel::pipeline (5 bytes)   inline (hot)&#x000A;                            @ 17   io.netty.channel.DefaultChannelConfig::getAllocator (5 bytes)   inline (hot)&#x000A;                            @ 24   io.netty.channel.DefaultChannelConfig::getMaxMessagesPerRead (5 bytes)   inline (hot)&#x000A;                            @ 44   io.netty.channel.DefaultChannelConfig::getRecvByteBufAllocator (5 bytes)   inline (hot)&#x000A;                            @ 49   io.netty.channel.AdaptiveRecvByteBufAllocator::newHandle (20 bytes)   executed &lt; MinInlining Threshold times&#x000A;</code></pre>
+            
+            <p>The most interesting things here are method which are marked as "hot method too big". Those are the methods which the JIT consider to be hot (so executed a lot) but are to big to consider them for inlining at all. If you want to archive max speed you don't want to see this ;) Or at least you want to try to make them shorter.</p>
+            
+            <p>But how to shorten them without loosing functionality? The solution is to move "less common patterns" out of the method into another method. This way the method itself becomes smaller while still be able to cover everything by the cost of dispatch to another method. This is exactly what I did for the here is what it looks like for the io.netty.channel.nio.AbstractNioMessageChannel$NioMessageUnsafe::read method. </p>
+            
+            <p>Before optimize it it looked like:</p>
+            
+            <pre class="syntax java">&#x000A;    private final class NioMessageUnsafe extends AbstractNioUnsafe {&#x000A;    	...&#x000A;&#x000A;        @Override&#x000A;        public void read() {&#x000A;            assert eventLoop().inEventLoop();&#x000A;            final SelectionKey key = selectionKey();&#x000A;            if (!config().isAutoRead()) {&#x000A;                int interestOps = key.interestOps();&#x000A;                if ((interestOps &amp; readInterestOp) != 0) {&#x000A;                    // only remove readInterestOp if needed&#x000A;                    key.interestOps(interestOps &amp; ~readInterestOp);&#x000A;                }&#x000A;            }&#x000A;&#x000A;            final ChannelConfig config = config();&#x000A;            final int maxMessagesPerRead = config.getMaxMessagesPerRead();&#x000A;            final boolean autoRead = config.isAutoRead();&#x000A;            final ChannelPipeline pipeline = pipeline();&#x000A;            boolean closed = false;&#x000A;            Throwable exception = null;&#x000A;            try {&#x000A;                for (;;) {&#x000A;                    int localRead = doReadMessages(readBuf);&#x000A;                    if (localRead == 0) {&#x000A;                        break;&#x000A;                    }&#x000A;                    if (localRead &lt; 0) {&#x000A;                        closed = true;&#x000A;                        break;&#x000A;                    }&#x000A;&#x000A;                    if (readBuf.size() &gt;= maxMessagesPerRead | !autoRead) {&#x000A;                        break;&#x000A;                    }&#x000A;                }&#x000A;            } catch (Throwable t) {&#x000A;                exception = t;&#x000A;            }&#x000A;&#x000A;            int size = readBuf.size();&#x000A;            for (int i = 0; i &lt; size; i ++) {&#x000A;                pipeline.fireChannelRead(readBuf.get(i));&#x000A;            }&#x000A;            readBuf.clear();&#x000A;            pipeline.fireChannelReadComplete();&#x000A;&#x000A;            if (exception != null) {&#x000A;                if (exception instanceof IOException) {&#x000A;                    // ServerChannel should not be closed even on IOException because it can often continue&#x000A;                    // accepting incoming connections. (e.g. too many open files)&#x000A;                    closed = !(AbstractNioMessageChannel.this instanceof ServerChannel);&#x000A;                }&#x000A;&#x000A;                pipeline.fireExceptionCaught(exception);&#x000A;            }&#x000A;&#x000A;            if (closed) {&#x000A;                if (isOpen()) {&#x000A;                    close(voidPromise());&#x000A;                }&#x000A;            }&#x000A;        }&#x000A;        ...&#x000A;    }</pre>
+            <p>What the method does is to read messages and the pass them through a pipeline for further processing. But how to make the method smaller without loose functionality? The key here is that the method checks on every execution if <code>isAutoRead() == false</code> and if not remove the interest ops from the SelectionKey. But the default is <code>true</code> and will never be <code>false</code> and almost noone will ever cheange this behavior (as it's for advanced usage only). So why not move the code out there, as we only need to save a few bytes&#8230;</p>
+            
+            <p>So here we go:</p>
+            
+            <pre class="syntax java">&#x000A;    private final class NioMessageUnsafe extends AbstractNioUnsafe {&#x000A;        ...&#x000A;&#x000A;        private void removeReadOp() {&#x000A;            SelectionKey key = selectionKey();&#x000A;            int interestOps = key.interestOps();&#x000A;            if ((interestOps &amp; readInterestOp) != 0) {&#x000A;                // only remove readInterestOp if needed&#x000A;                key.interestOps(interestOps &amp; ~readInterestOp);&#x000A;            }&#x000A;        }&#x000A;    &#x000A;        @Override&#x000A;        public void read() {&#x000A;            assert eventLoop().inEventLoop();&#x000A;            if (!config().isAutoRead()) {&#x000A;                removeReadOp();&#x000A;            }&#x000A;&#x000A;            final ChannelConfig config = config();&#x000A;            ...&#x000A;        }&#x000A;        ...&#x000A;    }</pre>
+            
+            <p>You see I just moved everything to the new method called <code>removeReadOp</code>. Now running the application again and re-run the same test as before the JIT was able to finally inline it. </p>
+            
+            <pre><code>               !              @ 42   io.netty.channel.nio.AbstractNioMessageChannel$NioMessageUnsafe::read (288 bytes)   inline (hot)&#x000A;</code></pre>
+            
+            <p>This eliminates the overhead of an method invocation / dispatch and so makes the execution of the code faster. You can find the full issue details in <a href="https://github.com/netty/netty/issues/1812">issue #1812</a>. </p>
+            
+            <h4 id="make-jits-job-easier">Make JIT's job easier</h4>
+            
+            <p>Beside have small methods there are other things you can do the help the JIT to inline methods. Inlining of methods is a lot "easier" by:</p>
+            
+            <ul>
+              <li>Use private methods when possible, as this way there is no need to check for other classes that override those methods</li>
+              <li>Use final classes / methods for the same reason as stated above</li>
+              <li>Use static methods for the same reason as stated above.</li>
+            </ul>
+            
+            <p>It's also fair to say that have a "flat" class hierarchy helps a lot. The JVM / JIT does especially handle situations very well when you have only two implementations of a specific interface or abstract base class. This is because it can handle things quite easy with an almost free instanceof check. For more informations on this topic please check <a href="http://www.cliffc.org/blog/2007/11/06/clone-or-not-clone/">Cliff Clicks post</a>.</p>
+            
+            <h4 id="inline--inline">Inline != Inline</h4>
+            
+            <p>Even if a method is inlined it may not perform as well as another inlined method. Why is that? Basically it makes a difference if a protected/public method is inlined or a private/static one. This is because even if a protected / public method is inlined it still needs to do type-checks to be safe, as another class may be loaded that override/implement those. This is not the case for private / static methods, as the JVM / JIT knows here that those will always be the same.</p>
+            
+            <p>So in some situations it may pay off to just "copy" code and not use abstract / protected / public etc to share it. <strong>But</strong> always think about the tradeoffs, which are mainly caused by maintance hell. So only do it if you really need to. As always meassure it, and see if you need the last 2% performance. So don't say I haven't warned you ;)</p>
+            
+            <h4 id="summary">Summary</h4>
+            
+            <p>So does it worth all the effort? As always it depends&#8230;  But if you are sure the hot-method is the one for the common use-pattern and you can split it up to move the "non-common" path out of the method and not make it complex as hell, YES it worth it.</p>
+          </div>
+        </article>
+        <ul class="pager">
+          <li class="previous">
+            <a href="../../../../blog/2014/04/17/Reactive-Streams/">&larr; Older</a>
+          </li>
+          <li>
+            <a href="../../../../index.html">List all blog posts</a>
+          </li>
+          <li class="next disabled">
+            <a href="#">Newer &rarr;</a>
+          </li>
+        </ul>
+      </div>
+      <div class="comments">
+        
+                    <div id="disqus_thread"></div>
+                    <script type="text/javascript">
+                    var disqus_shortname = 'normanmaurer';
+                    var disqus_url = "http://normanmaurer.me/blog/2014/05/15/Inline-all-the-Things/";
+                    var disqus_developer = null;
+                    var disqus_identifier = null;
+                    (function() {
+                      var dsq = document.createElement("script"); dsq.type = "text/javascript"; dsq.async = true;
+                      dsq.src = "http://normanmaurer.disqus.com/embed.js";
+                      (document.getElementsByTagName("head")[0] || document.getElementsByTagName("body")[0]).appendChild(dsq);
+                    })();
+                    </script>
+                    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript=normanmaurer">comments powered by Disqus.</a></noscript>
+      </div>
+      <hr>
+      <footer>
+        <div class="row">
+          <div class="span">
+            <p>&copy; Norman Maurer 2013 - 2014</p>
+          </div>
+          <div class="span">
+            <a href="http://normanmaurer.me/blog.atom">Subscribe RSS Feed</a>
+          </div>
+        </div>
+      </footer>
+      <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js" type="text/javascript"></script>
+      <script src="http://normanmaurer.me/javascripts/bootstrap-collapse.js" type="text/javascript"></script>
+      <script src="http://normanmaurer.me/javascripts/jquery-syntax/jquery.syntax.min.js" type="text/javascript"></script>
+      <script>
+        $($.syntax({blockLayout: 'plain'}))
+      </script>
+    </div>
+  </body>
+</html>
+<script type="text/javascript">
+var _gaq = _gaq || [];
+_gaq.push(['_setAccount','UA-45259657-1']);
+_gaq.push(['_trackPageview']);
+(function() {
+ var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+ ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+ var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+})();
+</script>
