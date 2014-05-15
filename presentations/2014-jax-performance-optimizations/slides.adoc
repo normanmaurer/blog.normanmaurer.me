@@ -1,0 +1,655 @@
+
+=  *Squeeze* out the last 5%
+include::attributes.adoc[]
+
+:experimental:
+:toc2:
+:sectanchors:
+:idprefix:
+:idseparator: -
+:icons: font
+:source-highlighter: coderay
+
+
+[.topic.source]
+== Norman Maurer, Principal Software Engineer @ Red Hat Inc
+
+====
+* [icon-user]'{zwsp}' Leading __Netty__ effort at Red Hat
+* [icon-user]'{zwsp}' Vert.x / NIO / Performance 
+* [icon-user]'{zwsp}' Author of __Netty in Action__
+* [icon-twitter]'{zwsp}' @normanmaurer
+* [icon-github]'{zwsp}' github.com/normanmaurer
+====
+
+[.topic.source]
+== Agenda
+
+* [icon-note]'{zwsp}' JIT / Inlining
+* [icon-note]'{zwsp}' GC
+* [icon-note]'{zwsp}' Padding
+* [icon-note]'{zwsp}' Unsafe
+* [icon-note]'{zwsp}' Queues
+* [icon-note]'{zwsp}' Bitwise Operations
+
+[.topic.source]
+== JIT - Just in Time Compiler
+
+====
+* [icon-note]'{zwsp}' loop-unrolling
+* [icon-note]'{zwsp}' rearranging code
+* [icon-note]'{zwsp}' removing synchronized
+* [icon-note]'{zwsp}' optimistic locking
+* [icon-note]'{zwsp}' inlining hot methods
+====
+
+[.topic.source]
+== Loop unrolling
+
+====
+* [icon-note]'{zwsp}' JIT may unroll loops
+* [icon-note]'{zwsp}' eliminate branching
+====
+
+image::unroll.jpg[width=120]
+....
+https://www.flickr.com/photos/st3f4n/3805014022/
+....
+
+[.topic.source]
+== Loop unrolling
+
+====
+* [icon-note]'{zwsp}' speed up loops
+====
+
+[source,java]
+.+May be hard for the JIT to unroll+
+----
+int i = 0;
+for (;;) {
+  if (array.length == i) {
+    break;
+  }
+  doSomething(array[i++]);
+}
+----
+
+[.topic.source]
+== Loop unrolling - Help the JIT
+
+array.length == 4
+
+====
+[source,java]
+.+Easy to unroll+
+----
+int i = 0;
+for (int i = 0; i < array.length; i++) {
+  doSomething(array[i]);
+}
+----
+
+====
+[source,java]
+.+unrolled loop+
+----
+doSomething(array[0]);
+doSomething(array[1]);
+doSomething(array[2]);
+doSomething(array[3]);
+----
+
+
+[.topic.source]
+== Inlining - General
+
+====
+* [icon-note]'{zwsp}' Inline hot methods
+* [icon-note]'{zwsp}' Eliminate call overhead
+* [icon-note]'{zwsp}' Only works when small enough
+====
+
+TIP: Limit for inline hot methods is 325 byte operations per default...
+
+
+[.topic.source]
+== Inlining - How it works
+
+====
+[source,java]
+.+Before inlined+
+----
+public void methodA() {
+  ... // Do some work A <1>
+  methodB();
+}
+
+private void methodB() {
+  ... // Do some more work B <2>
+}
+----
+
+====
+[source,java]
+.+methodB is inlined into methodA+
+----
+public void methodA() {
+  ... // Do some work A <3>
+  ... // Do some more work B <4>
+}
+----
+
+[.topic.source]
+== Inlining - How you detect
+
+[source,java]
+.+Record inline tasks+
+----
+java \
+-XX:+PrintCompilation \ <1>
+-XX:+UnlockDiagnosticVMOptions \ <2>
+-XX:+PrintInlining \ <3>
+.... > inline.log
+----
+
+<1> Prints out when JIT compilation happens
+<2> Is needed to use flags like -XX:+PrintInlining
+<3> Prints what methods were inlined
+
+[.topic.source]
+== Inlining - How you detect
+
+[source,java]
+.+inline.log content example+
+----
+@ 42   io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe::read (191 bytes)   inline (hot) <1>
+@ 42   io.netty.channel.nio.AbstractNioMessageChannel$NioMessageUnsafe::read (327 bytes)   hot method too big <2>
+  @ 4   io.netty.channel.socket.nio.NioSocketChannel::config (5 bytes)   inline (hot)
+    @ 1   io.netty.channel.socket.nio.NioSocketChannel::config (5 bytes)   inline (hot)
+  @ 12   io.netty.channel.AbstractChannel::pipeline (5 bytes)   inline (hot)
+----
+
+<1> Method is _hot_ and was inlined
+<2> Method is _hot_ and was _too big_ for inlining :(
+
+TIP: You want to have your hot methods inlined, for max performance when possible!
+
+     
+[.topic.source]
+== Inlining - Before code was optimized
+
+[source,java]
+.+Original code which was cause of too big for inlining+
+----
+private final class NioMessageUnsafe extends AbstractNioUnsafe {
+  public void read() {
+    final SelectionKey key = selectionKey();
+    if (!config().isAutoRead()) {
+      int interestOps = key.interestOps();
+      if ((interestOps & readInterestOp) != 0) {
+        // only remove readInterestOp if needed
+        key.interestOps(interestOps & ~readInterestOp);
+      }
+    }
+    ... // rest of the method
+  }
+  ...
+}
+----
+
+     
+[.topic.source]
+== Inlining - After code was optimized
+
+[source,java]
+.+Factor out less likely branch out in new method+
+----
+private final class NioMessageUnsafe extends AbstractNioUnsafe {
+  private void removeReadOp() {
+    SelectionKey key = selectionKey();
+    int interestOps = key.interestOps();
+    if ((interestOps & readInterestOp) != 0) {
+      // only remove readInterestOp if needed
+      key.interestOps(interestOps & ~readInterestOp);
+    }
+  }
+    
+  public void read() {
+    if (!config().isAutoRead()) {
+      removeReadOp();
+    }
+    ... // rest of the method
+  }
+  ...
+}
+----
+
+     
+[.topic.source]
+== Inlining - Result after code change
+
+[source,java]
+.+inline.log content after change+
+----
+@ 42   io.netty.channel.nio.AbstractNioMessageChannel$NioMessageUnsafe::read (288 bytes)   inline (hot) <1>
+----
+
+<1> Method is now small enough for inlining :)
+
+[.topic.source]
+== Inline != Inline ... huh ?
+
+====
+* [icon-note]'{zwsp}' public vs. protected vs. private
+* [icon-note]'{zwsp}' final vs. non-final
+* [icon-note]'{zwsp}' static vs. non-static
+====
+
+image::type.jpg[width=150]
+....
+https://www.flickr.com/photos/brears/2685223351
+....
+
+[.topic.source]
+== Inline  - Make JIT's life easier
+
+====
+* [icon-note]'{zwsp}' flat-class hierarchy
+* [icon-note]'{zwsp}' special handling of two impls.
+====
+
+....
+http://www.cliffc.org/blog/2007/11/06/clone-or-not-clone/
+....
+
+[.topic.source]
+== Inline by hand - if nothing helps
+
+TIP: You can inline by hand
+
+image::nightmare.jpg[width=400]
+....
+https://www.flickr.com/photos/tracheotomy_bob/5430166369
+....
+WARNING: Only do this if you really need the last percent of performance. This can result in a maintainance nightmare!
+
+[.topic.source]
+== GC - Garbage Collector
+
+
+image::trash.jpg[width=500]
+....
+https://www.flickr.com/photos/stavos52093/13807616194/
+....
+
+[.topic.source]
+== Finalizer - No thanks
+
+[source,java]
+.+Ouch :(+
+----
+public class YourClass {
+  @Override
+  public void finalize() {
+    // cleanup resources and destroy them
+  }
+}
+----
+
+[source,java]
+.+Better :)+
+----
+public class YourClass {
+  public void destroy() {
+    // cleanup resources and destroy them
+  }
+}
+----
+
+WARNING: Overriding finalize() is 99% of the time a very bad idea!
+
+[.topic.source]
+== Finalizer - Welcome to hell
+
+====
+* [icon-note]'{zwsp}' more work for the GC
+* [icon-note]'{zwsp}' never know when it runs
+* [icon-note]'{zwsp}' ties up GC thread
+* [icon-note]'{zwsp}' may resurruct object
+====
+
+[.topic.source]
+== WeakReference / SoftReference
+
+image::weak.jpg[width=300]
+....
+https://www.flickr.com/photos/counteragent/2190576349
+....
+
+====
+* [icon-note]'{zwsp}' more work on GC
+* [icon-note]'{zwsp}' logic depends on GC
+* [icon-note]'{zwsp}' GC pressure
+====
+
+[.topic.source]
+== GC - Pressure
+
+====
+* [icon-note]'{zwsp}' Objects are _not_ for free
+* [icon-note]'{zwsp}' Datastructures in GC overhead
+====
+
+image::gc_pressure.jpg[width=250]
+....
+https://www.flickr.com/photos/tracheotomy_bob/5430166369
+....
+
+[.topic.source]
+== Datastructures and GC effect
+
+====
+* [icon-note]'{zwsp}' array => GC friendly
+* [icon-note]'{zwsp}' linked-list => GC unfriendly
+====
+
+TIP: Also pre-fetch works out quite well for array based datastructures, also cache lines etc.
+
+[.topic.source]
+== linked-list made GC-friendly
+
+[source,java]
+.+Roll your own linked-list datastructure+
+----
+public class Entry {
+  Entry next; <1>
+  Entry prev;
+  public void methodA() {}
+}
+
+public class EntryList {
+  Entry head; <2>
+  Entry tail;
+  public void add(Entry entry) {}
+}
+----
+<1> Entry itself can be used as node
+<2> head and tail of the list
+
+WARNING: Each Entry can hold be added to one EntryList.
+
+[.topic.source]
+== False-sharing
+
+====
+* [icon-note]'{zwsp}' contention on same cache-line
+* [icon-note]'{zwsp}' cache line ~ 64 bytes
+====
+
+
+image::sharing.jpg[width=250]
+....
+https://www.flickr.com/photos/ryanr/142455033/
+....
+
+[.topic.source]
+== False Sharing - Padding to the rescue 
+
+====
+* [icon-note]'{zwsp}' pad object = own cache-line
+* [icon-note]'{zwsp}' best done via adding longs
+====
+
+WARNING: There is `@Contended` in Java8 but needs to be enabled via switch and not allow to pack multiple objects in one cache-line. This is part of http://openjdk.java.net/jeps/142[JEP-142]
+
+[.topic.source]
+== False Sharing - A case-study
+
+NOTE: The following code snippets and diagram is based on https://twitter.com/mjpt777[Martin Thompsons] blog posts http://mechanical-sympathy.blogspot.de/2011/07/false-sharing.html[False Sharing] and http://mechanical-sympathy.blogspot.de/2011/08/false-sharing-java-7.html[False Sharing && Java 7].
+
+image::false_sharing.png[width=350]
+....
+https://twitter.com/normanmaurer/status/465821479012401152
+....
+
+TIP: Credit where credit is due.
+
+[.topic.source]
+== False Sharing - Padding to the rescue 
+
+[source,java]
+.+False-sharing Test+
+---- 
+public final class FalseSharing implements Runnable {
+  private static AtomicLong[] longs = new AtomicLong[NUM_THREADS];
+  ....
+  public static void runTest() throws InterruptedException {
+    Thread[] threads = new Thread[NUM_THREADS];
+    for (int i = 0; i < threads.length; i++)
+      threads[i] = new Thread(new FalseSharing(i));
+    for (Thread t : threads) { t.start(); }
+    for (Thread t : threads) { t.join(); }
+  }
+
+  public void run() {
+    long i = ITERATIONS + 1;
+    while (0 != --i) { longs[arrayIndex].set(i); }
+  }
+}
+----
+
+[.topic.source]
+== False Sharing - No padding
+
+[source,java]
+.+AtomicLong without padding+
+---- 
+public final class FalseSharing implements Runnable {
+  private static AtomicLong[] longs = new AtomicLong[NUM_THREADS];
+  static { 
+    for (int i = 0; i < longs.length; i++) {
+      longs[i] = new AtomicLong();
+    }
+  }
+  ...
+}
+----
+[.topic.source]
+== False Sharing - Padding for AtomicLong
+
+[source,java]
+.+AtomicLong with padding+
+---- 
+public final class FalseSharing implements Runnable {
+  private static PaddedAtomicLong[] longs = new PaddedAtomicLong[NUM_THREADS];
+  static { 
+    for (int i = 0; i < longs.length; i++) {
+      longs[i] = new PaddedAtomicLong();
+    }
+  }
+  ...
+  public static long sumPaddingToPreventOptimisation(final int index) {
+    PaddedAtomicLong v = longs[index];
+    return v.p1 + v.p2 + v.p3 + v.p4 + v.p5 + v.p6;
+  }
+ 
+  public static class PaddedAtomicLong extends AtomicLong {
+    public volatile long p1, p2, p3, p4, p5, p6 = 7L;
+  }
+}
+----
+
+[.topic.source]
+== False Sharing - results
+
+image::duration.png[width=500]
+....
+http://mechanical-sympathy.blogspot.de/2011/07/false-sharing.html
+....
+
+[.topic.source]
+== Unsafe - Welcome to the dark side
+
+[source,java]
+---- 
+public static Unsafe getUnsafe() {
+  Class cc = sun.reflect.Reflection.getCallerClass(2);
+  if (cc.getClassLoader() != null)
+    throw new SecurityException("Unsafe");
+  return theUnsafe;
+}
+----
+
+image::unsafe_private.jpg[width=250]
+....
+https://www.flickr.com/photos/oldpatterns/6100020538
+....
+
+
+[.topic.source]
+== Unsafe - Swiss-army-knife of Java
+
+====
+* [icon-note]'{zwsp}' Allows to act on memory address
+* [icon-note]'{zwsp}' Array operations
+* [icon-note]'{zwsp}' volatile / atomic operations
+====
+
+TIP: Can do a lot of things faster then abstractions because of eliminate range checks and allow to access stuff directly via memory addresses etc.
+
+
+[.topic.source]
+== Unsafe == unsafe
+
+====
+* [icon-note]'{zwsp}' Easy to segfault JVM
+* [icon-note]'{zwsp}' unofficial API
+====
+
+image::unsafe.png[width=500]
+....
+Caution: @lagergren may hunt you down ;)
+....
+
+
+
+[.topic.source]
+== Unsafe
+
+
+image::unsafe_danger.png[width=400]
+....
+http://zeroturnaround.com/rebellabs/dangerous-code-how-to-be-unsafe-with-java-classes-objects-in-memory/
+....
+
+
+[.topic.source]
+== Queues - Use the right for the right job
+
+NOTE: _SPSC_ => Single Producer Single Consumer  
+
+NOTE: _SPMC_ => Single Producer Multi Consumer
+
+NOTE: _MPSC_ => Multi Producer Single Consumer
+
+NOTE: _MPMC_ => Multi Producer Multi Consumer
+
+TIP: Usage pattern is imprtant!
+
+[.topic.source]
+== Queues
+
+WARNING: All concurrent queues in the JDK are _MPMC_ 
+
+image::sad.jpg[width=300]
+....
+https://www.flickr.com/photos/kirisryche/4350193154
+....
+
+
+TIP: https://github.com/nitsanw/JAQ-InABox[JAQ-InABox] provides some nice alternatives. Say thanks to https://twitter.com/nitsanw[@nitsanw].
+
+
+[.topic.source]
+== Atomic*.lazySet(...) for the win
+
+NOTE: Cheap volatile writes, we all love cheap when it comes to performance!
+
+image::lazy.jpg[width=250]
+....
+https://www.flickr.com/photos/vmabney/9431857312
+....
+
+
+WARNING: Only works for Single Writers a.k.a Single Producers. More details on http://psy-lob-saw.blogspot.de/2012/12/atomiclazyset-is-performance-win-for.html[Atomic*.lazySet is a performance win for single writers] post by https://twitter.com/nitsanw[@nitsanw]. 
+
+
+[.topic.source]
+== Bitwise operations are fast
+
+[source,java]
+.+Slow nextIdx(...) method based on modulo operation+
+---- 
+private final Object[] array = new Object[128];
+
+private int nextIdx(int index) {
+  return (index + 1) % array.length;
+}
+----
+
+[source,java]
+.+Fast nextIdx(...) method based on bitwise operation+
+---- 
+private final Object[] array = new Object[128];
+private final int mask = array.length - 1;
+
+private int nextIdx(int index) {
+  return (index + 1) & mask;
+}
+----
+
+
+TIP: Bitwise operations are most of the times faster then Arithmetic.
+
+WARNING: Only works for Single Writers a.k.a Single Producers. More details on http://psy-lob-saw.blogspot.de/2012/12/atomiclazyset-is-performance-win-for.html[Atomic*.lazySet is a performance win for single writers] post by https://twitter.com/nitsanw[@nitsanw]. 
+
+
+[.topic.source]
+== More informations on these topics
+
+NOTE: http://mechanical-sympathy.blogspot.de[Mechanical Sympathy blog] and https://groups.google.com/forum/#!forum/mechanical-sympathy[Mechanical Sympathy Mailinglist]
+
+NOTE: http://cs.oswego.edu/pipermail/concurrency-interest/[Concurrency Interest Mailinglist]
+
+NOTE: http://psy-lob-saw.blogspot.de[Nitsan Wakarts Blog]
+
+NOTE: http://shipilev.net[Aleksey Shipilevs Blog]
+
+
+[.topic.source]
+== So squeeze of the last bit of performance...
+
+image::squeeze.jpg[width=400]
+....
+https://www.flickr.com/photos/dolmansaxlil/5347064183
+....
+
+
+[.topic.source]
+== References
+
+NOTE: Slides generated with Asciidoctor and DZSlides backend
+
+NOTE: Original slide template - Dan Allen & Sarah White
+
+NOTE: All pictures licensed with `Creative Commons Attribution` or +
+`Creative Commons Attribution-Share Alike`
+
+
+[.topic.ending, hrole="name"]
+== Norman Maurer
+
+[.footer]
+[icon-twitter]'{zwsp}' @normanmaurer
+

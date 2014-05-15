@@ -1,0 +1,436 @@
+= _High Performance Networking_ on the JVM  - Lessons learned
+include::attributes.adoc[]
+
+:experimental:
+:toc2:
+:sectanchors:
+:idprefix:
+:idseparator: -
+:icons: font
+:source-highlighter: coderay
+
+[.topic.source]
+== Norman Maurer, Principal Software Engineer @ Red Hat Inc
+
+====
+* [icon-user]'{zwsp}' Leading __Netty__ effort at Red Hat
+* [icon-user]'{zwsp}' Vert.x / NIO / Performance 
+* [icon-user]'{zwsp}' Author of __Netty in Action__
+* [icon-twitter]'{zwsp}' @normanmaurer
+* [icon-github]'{zwsp}' github.com/normanmaurer
+====
+
+[.topic.source]
+== General
+
+* [icon-note]'{zwsp}' only optimize if needed
+* [icon-note]'{zwsp}' 1000 connections != high-scale
+* [icon-note]'{zwsp}' Never best-guess
+* [icon-note]'{zwsp}' Meassure before and after
+* [icon-note]'{zwsp}' Warmup!
+
+[.topic.source]
+== Blocking-IO ?
+
+TIP: For high-performance with many concurrent connections you WANT to use NIO or NIO.2!
+
+image::lazy.jpg[width=300]
+....
+https://www.flickr.com/photos/theleetgeeks/3110958031
+....
+
+[.topic.source]
+== What is the issue with blocking-IO ?
+
+* [icon-note]'{zwsp}' one Thread per connection
+* [icon-note]'{zwsp}' each Thread ~ 128kb - 1mb 
+* [icon-note]'{zwsp}' context-switching
+
+[.topic.source]
+== Socket options general...
+
+* [icon-note]'{zwsp}' can have big impact
+* [icon-note]'{zwsp}' negative and positive!
+* [icon-note]'{zwsp}' only touch when sure
+
+[.topic.source]
+== Often most interesting socket options
+
+* [icon-note]'{zwsp}' TCP_NO_DELAY
+* [icon-note]'{zwsp}' SO_SNDBUF
+* [icon-note]'{zwsp}' SO_RCVBUF
+* [icon-note]'{zwsp}' SO_BACKLOG
+
+
+NOTE: There are others but some are not exposed by java nio itself. 
+
+[.topic.source]
+== GC-Pressure - Run collector, run...
+
+image::gc_pressure.jpg[width=300]
+....
+http://25.media.tumblr.com/tumblr_me2eq0PnBx1rtu0cpo1_1280.jpg
+....
+
+WARNING: Every time I hear allocation / deallocation of objects is a no-brainer a kitten dies!
+
+[.topic.source]
+== Solve (partial) GC-Pressure
+
+* [icon-note]'{zwsp}' Minimize alloc/dealloc
+* [icon-note]'{zwsp}' use static instances
+
+WARNING: But only cache/pool where it really makes sense as long-living objects may be bad either in terms of GC
+
+TIP: Rule of thumb: use static if it's immutable and used often. If its mutable only pool / cache if allocation costs are high!
+
+[.topic.source]
+== GC-Pressure - For real ?
+
+"If you never saw GC-Pressure you not pushed your system hard enough"
+-- Famous words of myself
+
+
+[.topic.source]
+== Source of GC-Pressure
+
+[source,java]
+.+Bad+
+----
+channelIdle(ctx, new IdleStateEvent(
+    IdleState.READER_IDLE, readerIdleCount ++, currentTime - lastReadTime));   
+----
+
+[source,java]
+.+Good+
+----
+channelIdle(ctx, IdleStateEvent.READER_IDLE_EVENT);
+----
+
+TIP: See Netty issue https://github.com/netty/netty/issues/973[#973] for more details.
+
+[.topic.source]
+== Garbage-Collector matters
+
+* [icon-note]'{zwsp}' Use the right collector
+* [icon-note]'{zwsp}' Tune areas depending on app
+* [icon-note]'{zwsp}' Only tune if you understand
+
+WARNING: __Stop the world__ == worst enemy!
+
+[.topic.source]
+== Buffers - allocate and deallocate
+
+* [icon-note]'{zwsp}' direct buffers == expensive
+* [icon-note]'{zwsp}' heap buffers == cheaper
+* [icon-note]'{zwsp}' fragementation
+
+WARNING: But zero-out byte[] of heap buffers is not for free either...
+
+[.topic.source]
+== Buffers - Memory fragmentation
+
+* [icon-note]'{zwsp}' waste memory
+* [icon-note]'{zwsp}' GC may triggered 
+
+image::memory.png[width=400]
+....
+Can't insert int here as we need 4 slots :(
+....
+
+TIP: A good pool will handle this!
+
+[.topic.source]
+== Pool buffers for rescue...
+
+TIP: Pooling pays off for direct and heap buffers!
+
+image::pooled_buffers.png[width=400]
+....
+https://blog.twitter.com/2013/netty-4-at-twitter-reduced-gc-overhead
+....
+
+
+[.topic.source]
+== Read / Write the right way
+
+* [icon-note]'{zwsp}' Gathering / Scattering
+
+image::gathering_scattering.png[width=400]
+....
+Especially useful if "message" is assembled out of header and payload.
+....
+
+
+[.topic.source]
+== Direct buffers for sockets
+
+TIP: Use direct buffers for operations on `SocketChannel` ...
+
+"Why?"
+-- Confused developer
+
+WARNING: Internally OpenJDK/Oracle JDK will copy the buffer to a direct buffer if you use a heap buffer
+
+
+[.topic.source]
+== Syscalls - Huh why should I care?
+
+WARNING: Syscalls are expensive, use them with care.
+
+TIP: Many methods on the `SocketChannel` map directly to a syscall.
+
+image::syscall.jpg[width=300]
+....
+https://www.flickr.com/photos/theshadowknows/2995004692
+....
+
+
+[.topic.source]
+== Memory copies - Not free either
+
+TIP: Use `ByteBuffer.slice()` and `ByteBuffer.duplicate()` whenever possible.
+
+image::copy.jpg[width=250]
+....
+https://www.flickr.com/photos/pasukaru76/4350792315
+....
+
+[.topic.source]
+== Zero-Memory-Copy - _FileChannel_
+
+* [icon-note]'{zwsp}' supported by __most__ OS
+* [icon-note]'{zwsp}' all in kernel-space
+
+NOTE: Only possible if you not need to transform the data during transfer!
+
+[.topic.source]
+== Back-pressure - otherwise fun with OOM!
+
+__interestedOps(...)__ == queue on network stack
+
+image:back_pressure.png[width=300]
+....
+http://memecrunch.com/meme/270NI/sparta-bird/image.png
+....
+
+NOTE: But not call interestedOps(...) too often, it's expensive. See https://github.com/netty/netty/issues/1024[#1024]
+
+[.topic.source]
+== OP_WRITE
+
+* [icon-note]'{zwsp}' not register by default
+* [icon-note]'{zwsp}' use when write partial
+* [icon-note]'{zwsp}' remove again later
+
+NOTE: Remember most of the times the Channel is writable.
+
+
+[.topic.source]
+== Don't block the IO Thread
+
+* [icon-note]'{zwsp}' move to extra ThreadPool
+* [icon-note]'{zwsp}' you may not expect it
+
+[source,java]
+.+DNS lookup will block :(+
+----
+InetSocketAddress remote = ...
+remote.getAddress().getHostname();   
+----
+
+WARNING: Logging can be a culprint too ... Async logging may be the key.
+
+
+[.topic.source]
+== Blocking in action
+
+* [icon-note]'{zwsp}' will effect multiple connections
+
+image:blocking.png[width=300]
+
+WARNING: RED == BAD
+
+[.topic.source]
+== SelectionKey
+
+* [icon-note]'{zwsp}' SelectionKey.interestedOps(....);
+
+"... Whether or not it blocks, and for how long is implementation-dependent..."
+-- Javadocs of SelectionKey 
+
+
+[.topic.source]
+== SelectionKey - Huh ?
+image:homerfacepalm.jpg[width=300]
+....
+Shit just got real...
+....
+
+
+[.topic.source]
+== SelectionKey usage optimized
+
+[source,java]
+.+Bad+
+----
+public void suspendRead() {
+  if ((ops & ey.interestOps()) != 0) {
+    key.interestOps(key.interestOps() & ~OP_READ);
+  }
+}
+----
+
+[source,java]
+.+Good+
+----
+int ops = key.interestOps();
+if ((ops & OP_READ) != 0) {
+  key.interestOps(ops & ~OP_READ);
+}
+----
+
+[.topic.source]
+== Be memory efficient
+"When write a System that handles 100k of concurrent connections every saved memory count for long-living objects"
+-- Hint of myself
+
+
+[.topic.source]
+== Atomic*FieldUpdater helps
+[source,java]
+.+Ugly but helps+
+----
+private static final AtomicLongFieldUpdater<TheDeclaringClass> ATOMIC_UPDATER =
+        AtomicLongFieldUpdater.newUpdater(TheDeclaringClass.class, "atomic");
+
+private volatile long atomic;
+
+public void yourMethod() {
+    ATOMIC_UPDATER.compareAndSet(this, 0, 1);
+}
+----
+
+TIP: Some more details on the topic on my blog post http://normanmaurer.me/blog/2013/10/28/Lesser-known-concurrent-classes-Part-1/[Lesser-known-concurrent-classes-Part-1]
+
+[.topic.source]
+== Datastructures / algorithms matter
+
+* [icon-note]'{zwsp}' linked vs array based
+* [icon-note]'{zwsp}' access pattern
+* [icon-note]'{zwsp}' memory / GC overhead
+
+[.topic.source]
+== Volatile
+
+* [icon-note]'{zwsp}' cheap but not for free
+* [icon-note]'{zwsp}' cache to mimimize overhead
+
+[.topic.source]
+== Volatile access - Optimized
+
+[source,java]
+.+Bad+
+----
+private volatile Selector selector;
+
+public void method() {
+  selector.select();
+  ....
+  selector.selectNow();
+}
+----
+
+[source,java]
+.+Good+
+----
+private volatile Selector selector;
+
+public void method() {
+  Selector selector = this.selector;
+  selector.select();
+  ....
+  selector.selectNow();
+}
+----
+
+[.topic.source]
+== Use Java7 or newer
+
+TIP: Allocation / Deallocation of ByteBuffers is a lot faster these days
+
+[.topic.source]
+== Well defined Thread-Model
+
+* [icon-note]'{zwsp}' easier to reason about
+* [icon-note]'{zwsp}' reduce context-switching
+* [icon-note]'{zwsp}' concurrency is hard
+
+[.topic.source]
+== Choose correct protocol
+
+* [icon-note]'{zwsp}' UDP
+* [icon-note]'{zwsp}' TCP
+* [icon-note]'{zwsp}' SCTP
+* [icon-note]'{zwsp}' UDT
+
+NOTE: There is always a trade-off.
+
+[.topic.source]
+== Pipelining is __awesome__
+
+* [icon-note]'{zwsp}' send messages without wait
+* [icon-note]'{zwsp}' still may suffer
+* [icon-note]'{zwsp}' HTTP, SMTP, IMAP Support it
+
+TIP: If you write your custom protocol think about Pipelining.
+
+[.topic.source]
+== Prefer Binary protocol over Text protocol
+
+* [icon-note]'{zwsp}' easier to parse
+* [icon-note]'{zwsp}' ofter more extensible
+
+image:binary.jpg[width=220]
+....
+https://www.flickr.com/photos/chiselwright/5169469959/
+....
+
+
+
+[.topic.source]
+== Too hard ? There are abstractions.
+
+* [icon-note]'{zwsp}' Netty 
+* [icon-note]'{zwsp}' Vert.x
+* [icon-note]'{zwsp}' Xnio
+* [icon-note]'{zwsp}' Grizzly
+* [icon-note]'{zwsp}' Apache Mina
+* [icon-note]'{zwsp}' Finagle
+
+
+[.topic.source]
+== Want to know more about performance?
+
+TIP: Attend my other talk later today! 
+
+
+image:win.jpg[width=300]
+....
+http://memegenerator.net/instance/43005548....
+
+[.topic.source]
+== References
+
+NOTE: Slides generated with Asciidoctor and DZSlides backend
+
+NOTE: Original slide template - Dan Allen & Sarah White
+
+NOTE: All pictures licensed with `Creative Commons Attribution` or +
+`Creative Commons Attribution-Share Alike`
+
+[.topic.ending, hrole="name"]
+== Norman Maurer
+
+[.footer]
+[icon-twitter]'{zwsp}' @normanmaurer

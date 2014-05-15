@@ -1,0 +1,128 @@
+<!DOCTYPE html><html lang="en" class="aspect-16-9"><head><meta charset="UTF-8"><meta name="generator" content="Asciidoctor 0.1.4, dzslides backend"><title>High Performance Networking on the JVM - Lessons learned</title><link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton:400,700,800,400italic|Cedarville+Cursive"><link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css"><link rel="stylesheet" href="./dzslides/themes/highlight/asciidoctor.css"><link rel="stylesheet" href="./dzslides/themes/style/asciidoctor.css"><style>section:not(.topic) > h2 { display: none;}</style><link rel="stylesheet" href="./dzslides/core/dzslides.css"><link rel="stylesheet" href="./dzslides/themes/transition/fade.css"></head><body><section class="title"><h1><em>High Performance Networking</em> on the JVM  - Lessons learned</h1><footer><span class="author"></span></footer></section><section class="topic source"><h2>Norman Maurer, Principal Software Engineer @ Red Hat Inc</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-user">&#8203;</em> Leading <em>Netty</em> effort at Red Hat</li><li><em class="icon-user">&#8203;</em> Vert.x / NIO / Performance</li><li><em class="icon-user">&#8203;</em> Author of <em>Netty in Action</em></li><li><em class="icon-twitter">&#8203;</em> @normanmaurer</li><li><em class="icon-github">&#8203;</em> github.com/normanmaurer</li></ul></div></div></section>
+<section class="topic source"><h2>General</h2><ul><li><em class="icon-note">&#8203;</em> only optimize if needed</li><li><em class="icon-note">&#8203;</em> 1000 connections != high-scale</li><li><em class="icon-note">&#8203;</em> Never best-guess</li><li><em class="icon-note">&#8203;</em> Meassure before and after</li><li><em class="icon-note">&#8203;</em> Warmup!</li></ul></section>
+<section class="topic source"><h2>Blocking-IO ?</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">For high-performance with many concurrent connections you WANT to use NIO or NIO.2!</td></tr></table></div>
+<img src="images/lazy.jpg" alt="lazy" width="300">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/theleetgeeks/3110958031</pre></div></section>
+<section class="topic source"><h2>What is the issue with blocking-IO ?</h2><ul><li><em class="icon-note">&#8203;</em> one Thread per connection</li><li><em class="icon-note">&#8203;</em> each Thread ~ 128kb - 1mb</li><li><em class="icon-note">&#8203;</em> context-switching</li></ul></section>
+<section class="topic source"><h2>Socket options general&#8230;</h2><ul><li><em class="icon-note">&#8203;</em> can have big impact</li><li><em class="icon-note">&#8203;</em> negative and positive!</li><li><em class="icon-note">&#8203;</em> only touch when sure</li></ul></section>
+<section class="topic source"><h2>Often most interesting socket options</h2><ul><li><em class="icon-note">&#8203;</em> TCP_NO_DELAY</li><li><em class="icon-note">&#8203;</em> SO_SNDBUF</li><li><em class="icon-note">&#8203;</em> SO_RCVBUF</li><li><em class="icon-note">&#8203;</em> SO_BACKLOG</li></ul>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">There are others but some are not exposed by java nio itself.</td></tr></table></div></section>
+<section class="topic source"><h2>GC-Pressure - Run collector, run&#8230;</h2><img src="images/gc_pressure.jpg" alt="gc pressure" width="300">
+<div class="literalblock"><pre class="literal">http://25.media.tumblr.com/tumblr_me2eq0PnBx1rtu0cpo1_1280.jpg</pre></div>
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">Every time I hear allocation / deallocation of objects is a no-brainer a kitten dies!</td></tr></table></div></section>
+<section class="topic source"><h2>Solve (partial) GC-Pressure</h2><ul><li><em class="icon-note">&#8203;</em> Minimize alloc/dealloc</li><li><em class="icon-note">&#8203;</em> use static instances</li></ul>
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">But only cache/pool where it really makes sense as long-living objects may be bad either in terms of GC</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Rule of thumb: use static if it&#8217;s immutable and used often. If its mutable only pool / cache if allocation costs are high!</td></tr></table></div></section>
+<section class="topic source"><h2>GC-Pressure - For real ?</h2><blockquote><p>If you never saw GC-Pressure you not pushed your system hard enough</p><br><cite>Famous words of myself</cite></blockquote></section>
+<section class="topic source"><h2>Source of GC-Pressure</h2><div class="listingblock"><div class="title"><code>Bad</code></div><pre class="highlight CodeRay"><code class="java">channelIdle(ctx, new IdleStateEvent(
+    IdleState.READER_IDLE, readerIdleCount ++, currentTime - lastReadTime));</code></pre></div>
+<div class="listingblock"><div class="title"><code>Good</code></div><pre class="highlight CodeRay"><code class="java">channelIdle(ctx, IdleStateEvent.READER_IDLE_EVENT);</code></pre></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">See Netty issue <a href="https://github.com/netty/netty/issues/973">#973</a> for more details.</td></tr></table></div></section>
+<section class="topic source"><h2>Garbage-Collector matters</h2><ul><li><em class="icon-note">&#8203;</em> Use the right collector</li><li><em class="icon-note">&#8203;</em> Tune areas depending on app</li><li><em class="icon-note">&#8203;</em> Only tune if you understand</li></ul>
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content"><em>Stop the world</em> == worst enemy!</td></tr></table></div></section>
+<section class="topic source"><h2>Buffers - allocate and deallocate</h2><ul><li><em class="icon-note">&#8203;</em> direct buffers == expensive</li><li><em class="icon-note">&#8203;</em> heap buffers == cheaper</li><li><em class="icon-note">&#8203;</em> fragementation</li></ul>
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">But zero-out byte[] of heap buffers is not for free either&#8230;</td></tr></table></div></section>
+<section class="topic source"><h2>Buffers - Memory fragmentation</h2><ul><li><em class="icon-note">&#8203;</em> waste memory</li><li><em class="icon-note">&#8203;</em> GC may triggered</li></ul>
+<img src="images/memory.png" alt="memory" width="400">
+<div class="literalblock"><pre class="literal">Can't insert int here as we need 4 slots :(</pre></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">A good pool will handle this!</td></tr></table></div></section>
+<section class="topic source"><h2>Pool buffers for rescue&#8230;</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Pooling pays off for direct and heap buffers!</td></tr></table></div>
+<img src="images/pooled_buffers.png" alt="pooled buffers" width="400">
+<div class="literalblock"><pre class="literal">https://blog.twitter.com/2013/netty-4-at-twitter-reduced-gc-overhead</pre></div></section>
+<section class="topic source"><h2>Read / Write the right way</h2><ul><li><em class="icon-note">&#8203;</em> Gathering / Scattering</li></ul>
+<img src="images/gathering_scattering.png" alt="gathering scattering" width="400">
+<div class="literalblock"><pre class="literal">Especially useful if "message" is assembled out of header and payload.</pre></div></section>
+<section class="topic source"><h2>Direct buffers for sockets</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Use direct buffers for operations on <code>SocketChannel</code> &#8230;</td></tr></table></div>
+<blockquote><p>Why?</p><br><cite>Confused developer</cite></blockquote>
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">Internally OpenJDK/Oracle JDK will copy the buffer to a direct buffer if you use a heap buffer</td></tr></table></div></section>
+<section class="topic source"><h2>Syscalls - Huh why should I care?</h2><div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">Syscalls are expensive, use them with care.</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Many methods on the <code>SocketChannel</code> map directly to a syscall.</td></tr></table></div>
+<img src="images/syscall.jpg" alt="syscall" width="300">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/theshadowknows/2995004692</pre></div></section>
+<section class="topic source"><h2>Memory copies - Not free either</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Use <code>ByteBuffer.slice()</code> and <code>ByteBuffer.duplicate()</code> whenever possible.</td></tr></table></div>
+<img src="images/copy.jpg" alt="copy" width="250">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/pasukaru76/4350792315</pre></div></section>
+<section class="topic source"><h2>Zero-Memory-Copy - <em>FileChannel</em></h2><ul><li><em class="icon-note">&#8203;</em> supported by <em>most</em> OS</li><li><em class="icon-note">&#8203;</em> all in kernel-space</li></ul>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Only possible if you not need to transform the data during transfer!</td></tr></table></div></section>
+<section class="topic source"><h2>Back-pressure - otherwise fun with OOM!</h2><p><em>interestedOps(&#8230;)</em> == queue on network stack</p>
+<p><span class="image"><img src="images/back_pressure.png" alt="back_pressure" width="300"></span></p>
+<div class="literalblock"><pre class="literal">http://memecrunch.com/meme/270NI/sparta-bird/image.png</pre></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">But not call interestedOps(&#8230;) too often, it&#8217;s expensive. See <a href="https://github.com/netty/netty/issues/1024">#1024</a></td></tr></table></div></section>
+<section class="topic source"><h2>OP_WRITE</h2><ul><li><em class="icon-note">&#8203;</em> not register by default</li><li><em class="icon-note">&#8203;</em> use when write partial</li><li><em class="icon-note">&#8203;</em> remove again later</li></ul>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Remember most of the times the Channel is writable.</td></tr></table></div></section>
+<section class="topic source"><h2>Don&#8217;t block the IO Thread</h2><ul><li><em class="icon-note">&#8203;</em> move to extra ThreadPool</li><li><em class="icon-note">&#8203;</em> you may not expect it</li></ul>
+<div class="listingblock"><div class="title"><code>DNS lookup will block :(</code></div><pre class="highlight CodeRay"><code class="java">InetSocketAddress remote = ...
+remote.getAddress().getHostname();</code></pre></div>
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">Logging can be a culprint too &#8230; Async logging may be the key.</td></tr></table></div></section>
+<section class="topic source"><h2>Blocking in action</h2><ul><li><em class="icon-note">&#8203;</em> will effect multiple connections</li></ul>
+<p><span class="image"><img src="images/blocking.png" alt="blocking" width="300"></span></p>
+<div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">RED == BAD</td></tr></table></div></section>
+<section class="topic source"><h2>SelectionKey</h2><ul><li><em class="icon-note">&#8203;</em> SelectionKey.interestedOps(&#8230;.);</li></ul>
+<blockquote><p>&#8230; Whether or not it blocks, and for how long is implementation-dependent&#8230;</p><br><cite>Javadocs of SelectionKey</cite></blockquote></section>
+<section class="topic source"><h2>SelectionKey - Huh ?</h2><p><span class="image"><img src="images/homerfacepalm.jpg" alt="homerfacepalm" width="300"></span></p>
+<div class="literalblock"><pre class="literal">Shit just got real...</pre></div></section>
+<section class="topic source"><h2>SelectionKey usage optimized</h2><div class="listingblock"><div class="title"><code>Bad</code></div><pre class="highlight CodeRay"><code class="java">public void suspendRead() {
+  if ((ops &amp; ey.interestOps()) != 0) {
+    key.interestOps(key.interestOps() &amp; ~OP_READ);
+  }
+}</code></pre></div>
+<div class="listingblock"><div class="title"><code>Good</code></div><pre class="highlight CodeRay"><code class="java">int ops = key.interestOps();
+if ((ops &amp; OP_READ) != 0) {
+  key.interestOps(ops &amp; ~OP_READ);
+}</code></pre></div></section>
+<section class="topic source"><h2>Be memory efficient</h2><blockquote><p>When write a System that handles 100k of concurrent connections every saved memory count for long-living objects</p><br><cite>Hint of myself</cite></blockquote></section>
+<section class="topic source"><h2>Atomic*FieldUpdater helps</h2><div class="listingblock"><div class="title"><code>Ugly but helps</code></div><pre class="highlight CodeRay"><code class="java">private static final AtomicLongFieldUpdater&lt;TheDeclaringClass&gt; ATOMIC_UPDATER =
+        AtomicLongFieldUpdater.newUpdater(TheDeclaringClass.class, "atomic");
+
+private volatile long atomic;
+
+public void yourMethod() {
+    ATOMIC_UPDATER.compareAndSet(this, 0, 1);
+}</code></pre></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Some more details on the topic on my blog post <a href="http://normanmaurer.me/blog/2013/10/28/Lesser-known-concurrent-classes-Part-1/">Lesser-known-concurrent-classes-Part-1</a></td></tr></table></div></section>
+<section class="topic source"><h2>Datastructures / algorithms matter</h2><ul><li><em class="icon-note">&#8203;</em> linked vs array based</li><li><em class="icon-note">&#8203;</em> access pattern</li><li><em class="icon-note">&#8203;</em> memory / GC overhead</li></ul></section>
+<section class="topic source"><h2>Volatile</h2><ul><li><em class="icon-note">&#8203;</em> cheap but not for free</li><li><em class="icon-note">&#8203;</em> cache to mimimize overhead</li></ul></section>
+<section class="topic source"><h2>Volatile access - Optimized</h2><div class="listingblock"><div class="title"><code>Bad</code></div><pre class="highlight CodeRay"><code class="java">private volatile Selector selector;
+
+public void method() {
+  selector.select();
+  ....
+  selector.selectNow();
+}</code></pre></div>
+<div class="listingblock"><div class="title"><code>Good</code></div><pre class="highlight CodeRay"><code class="java">private volatile Selector selector;
+
+public void method() {
+  Selector selector = this.selector;
+  selector.select();
+  ....
+  selector.selectNow();
+}</code></pre></div></section>
+<section class="topic source"><h2>Use Java7 or newer</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Allocation / Deallocation of ByteBuffers is a lot faster these days</td></tr></table></div></section>
+<section class="topic source"><h2>Well defined Thread-Model</h2><ul><li><em class="icon-note">&#8203;</em> easier to reason about</li><li><em class="icon-note">&#8203;</em> reduce context-switching</li><li><em class="icon-note">&#8203;</em> concurrency is hard</li></ul></section>
+<section class="topic source"><h2>Choose correct protocol</h2><ul><li><em class="icon-note">&#8203;</em> UDP</li><li><em class="icon-note">&#8203;</em> TCP</li><li><em class="icon-note">&#8203;</em> SCTP</li><li><em class="icon-note">&#8203;</em> UDT</li></ul>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">There is always a trade-off.</td></tr></table></div></section>
+<section class="topic source"><h2>Pipelining is <em>awesome</em></h2><ul><li><em class="icon-note">&#8203;</em> send messages without wait</li><li><em class="icon-note">&#8203;</em> still may suffer</li><li><em class="icon-note">&#8203;</em> HTTP, SMTP, IMAP Support it</li></ul>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">If you write your custom protocol think about Pipelining.</td></tr></table></div></section>
+<section class="topic source"><h2>Prefer Binary protocol over Text protocol</h2><ul><li><em class="icon-note">&#8203;</em> easier to parse</li><li><em class="icon-note">&#8203;</em> ofter more extensible</li></ul>
+<p><span class="image"><img src="images/binary.jpg" alt="binary" width="220"></span></p>
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/chiselwright/5169469959/</pre></div></section>
+<section class="topic source"><h2>Too hard ? There are abstractions.</h2><ul><li><em class="icon-note">&#8203;</em> Netty</li><li><em class="icon-note">&#8203;</em> Vert.x</li><li><em class="icon-note">&#8203;</em> Xnio</li><li><em class="icon-note">&#8203;</em> Grizzly</li><li><em class="icon-note">&#8203;</em> Apache Mina</li><li><em class="icon-note">&#8203;</em> Finagle</li></ul></section>
+<section class="topic source"><h2>Want to know more about performance?</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Attend my other talk later today!</td></tr></table></div>
+<p><span class="image"><img src="images/win.jpg" alt="win" width="300"></span></p>
+<div class="literalblock"><pre class="literal">http://memegenerator.net/instance/43005548....
+
+[.topic.source]
+== References
+
+NOTE: Slides generated with Asciidoctor and DZSlides backend
+
+NOTE: Original slide template - Dan Allen &amp; Sarah White
+
+NOTE: All pictures licensed with `Creative Commons Attribution` or +
+`Creative Commons Attribution-Share Alike`
+
+[.topic.ending, hrole="name"]
+== Norman Maurer
+
+[.footer]
+[icon-twitter]'{zwsp}' @normanmaurer</pre></div></section><script src="./dzslides/core/dzslides.js"></script><script src="./dzslides/highlight/highlight.pack.js"></script><script>hljs.initHighlightingOnLoad()</script></body></html>
