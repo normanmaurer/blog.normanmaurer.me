@@ -1,6 +1,6 @@
 ---
 layout: post
-title: 'Inline all the Things'
+title: 'Inline all the things'
 author: normanmaurer
 ---
 
