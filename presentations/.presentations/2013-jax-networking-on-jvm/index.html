@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>High performance networking on the JVM</title>
+
+		<meta name="description" content="A framework for easily creating beautiful presentations using HTML">
+		<meta name="author" content="Hakim El Hattab">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="css/reveal.min.css">
+		<link rel="stylesheet" href="css/theme/beige.css" id="theme">
+
+		<!-- For syntax highlighting -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- If the query includes 'print-pdf', use the PDF print sheet -->
+		<script>
+			document.write( '<link rel="stylesheet" href="css/print/' + ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">' );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+            <div class="slides">
+                <section>
+                    <h1>High performance networking on the JVM</h1>
+                    <h3>Lessons Learned</h3>
+                </section>
+
+                <section>
+                    <h2>Norman Maurer</h2>
+                    <div>
+                        <h2 style="">
+                            <img src="images/redhat.png" style="border: none;">
+                        </h2>
+                    </div>
+                    <div>
+                        <li style="text-align: justify;">Red Hat (JBoss) - EAP Core Team</li>
+                        <li style="text-align: justify;">Former contractor for Apple Inc</li>
+                        <li style="text-align: justify;">Author - Netty in Action<br>
+                        </li>
+                        <li style="text-align: justify;">Apache Software Foundation Member</li>
+                        <li style="text-align: justify;">Netty &nbsp;/&nbsp;<span style="">Vert.x&nbsp;</span>Core-Developer and all things NIO</li>
+                        <li style="text-align: justify;">Java and Scala</li>
+                        <li style="text-align: justify;">Twitter: @normanmaurer</li>
+                        <li style="text-align: justify;">Github: https://github.com/normanmaurer</li>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>General</h2>
+                    <div>
+                        <ul>
+                            <li>As always, only optimize if you really need!</li>
+                            <li>1000 concurrent connections != high-scale</li>
+                            <li>If you only need to handle a few hundred connections use Blocking IO!</li>
+                            <li>Make use of a profiler to find issues, and not best-guess...</li>
+                            <li>Always test before and after changes, and not forget to warmup!</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>What you want</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <blockquote>For high-performance with many concurrent connections you <b>WANT</b> to use NIO or NIO.2</blockquote>
+                </section>
+
+                <section>
+                    <h2>What you NOT want</h2>
+                    <blockquote>Create one Thread per connection and let the OS try to deal with thousands of threads</blockquote>
+                    <p>
+                        <br>
+                    </p>
+                    <p>
+                        <br>
+                    </p>
+                    <blockquote>If you want.... good luck ;)</blockquote>
+                </section>
+
+                <section>
+                    <h2>Socket Options General</h2>
+                    <div>
+                        <ul>
+                            <li>Some socket options can have great impact</li>
+                            <li>This is true for bad and good impact</li>
+                            <li>Only touch them if you know what they do</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Most interesting Socket Options</h2>
+                    <div>
+                        <ul>
+                            <li>TCP_NO_DELAY</li>
+                            <li>SO_SNDBUF</li>
+                            <li>SO_RCVBUF</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>GC - Pressure</h2>
+                    <blockquote>Allocate / Deallocate the shit out of it!</blockquote>
+                </section>
+
+                <section>
+                    <h2>Solve GC-Pressure&nbsp;</h2>
+                    <div>
+                        <ul>
+                            <li>Try to minimize allocation / deallocation of objects</li>
+                            <li>Use static instances where ever possible</li>
+                            <li>Ask yourself do I really need to create the instance</li>
+                            <li>
+                                <b>BUT, </b>only cache/pool where it makes sense as long-living objects may&nbsp;have bad impact on GC &nbsp;as well</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <div style="text-align: left;">
+                        <br>
+                    </div>
+                    <blockquote>Rule of thumb: use static if it's immutable and used often. If its mutable only pool / cache if allocation costs are high!</blockquote>
+                </section>
+
+                <section>
+                    <h2>GC-Pressure</h2>
+                    <blockquote>Every time I hear allocation / deallocation of objects is a no-brainer a kitten dies!</blockquote>
+                </section>
+
+                <section>
+                    <h2>Gc - Pressure</h2>
+                    <blockquote>But I never had GC-Pressure ....</blockquote>
+                    <p>
+                        <br>
+                    </p>
+                    <p>
+                        <br>
+                    </p>
+                    <p>
+                        <br>
+                    </p>
+                    <blockquote>
+                        <i>Well, you not pushed your system hard enough!</i>
+                    </blockquote>
+                </section>
+
+                <section>
+                    <h2>Source of GC-Pressure in Action</h2>
+                    <div>
+                        <i>&nbsp;https://github.com/netty/netty/issues/973</i>
+                    </div>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <b>BAD</b>
+                    </div>
+                        <pre><code>channelIdle(ctx, new IdleStateEvent(IdleState.READER_IDLE, 
+                            readerIdleCount ++, currentTime - lastReadTime)); 
+                        </code></pre>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <div style="">
+                            <b style="">BETTER!</b>
+                        </div>
+                    </div>
+                    <pre><code>channelIdle(ctx, IdleStateEvent.READER_IDLE_EVENT);</code></pre>
+                </section>
+
+                <section>
+                    <h2>Garbage-Collector matters</h2>
+                    <div>
+                        <ul>
+                            <li>The Garbage-Collector really matters</li>
+                            <li>Use a CMS-based collector or G1 if you want high-troughput</li>
+                            <li>Size different areas depending on your application / access pattern</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <blockquote>Stop-the-world GC is your <b>worst</b> enemy if you want to push data hard</blockquote>
+                </section>
+
+                <section>
+                    <h2>Garbage Collector&nbsp;</h2>
+                    <div>
+                        <ul>
+                            <li>Tune the GC is kind of an "black art"</li>
+                            <li>Be sure you understand what you are doing</li>
+                            <li>GC-Tuning params are different per App</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Buffers</h2>
+                    <div>
+                        <ul>
+                            <li>Allocate / Deallocate from direct buffers is expensive</li>
+                            <li>Allocate/ Deallocate from heap buffers is cheap</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <blockquote>Free up memory of direct buffers is expensive</blockquote>
+                    <blockquote>Unfortunately zero-out the byte array of heap buffers is not for free too</blockquote>
+                </section>
+
+                <section>
+                    <h2>BufferPooling to the rescue</h2>
+                    <div>
+                        <ul>
+                            <li>Pool buffers if you need to create a lot of them</li>
+                            <li>This is especially true for direct buffers</li>
+                            <li>There is also Unsafe.... but its "<b>
+                                <i>unsafe</i>
+                                </b>" ;)</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Memory fragmentation</h2>
+                    <div>
+                        <ul>
+                            <li>Memory fragmentation is bad, as you will waste memory</li>
+                            <li>More often GC to remove fragmentation.</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <img src="images/memory.png" style="border: none;">
+                        <br>
+                    </div>
+                    <blockquote>Can't insert int here as we need 4 slots!</blockquote>
+                    <div style="text-align: left;">
+                        <br>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Gathering writes / Scattering Reads</h2>
+                    <div>
+                        <ul>
+                            <li>Use Gathering writes / Scattering reads</li>
+                            <li>Especially useful for protocols that can be assembled out of multiple buffers</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <img src="images/gathering_scattering.png" style="border: none;">
+                    </div>
+                    <div style="text-align: center;">
+                        <b>
+                        <br>
+                        </b>
+                    </div>
+                    <div style="text-align: center;">
+                        <b>IMPORTANT</b>: Gathering writes only works without memory leak since java7 and late java6.</div>
+                </section>
+
+                <section>
+                    <h2>USe Direct buffers For Sockets</h2>
+                    <div>
+                        <ul>
+                            <li>Use direct buffers when you do operations on sockets</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <blockquote>WHY ?</blockquote>
+                    <br>
+                    <blockquote>Internally the JDK* will copy the buffer content to a direct buffer if you not use one</blockquote>
+                </section>
+
+                <section>
+                    <h2>Minimize SyscalLs</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <blockquote>Only call Channel.write(...) / Channel.read(...) if you really need!</blockquote>
+                    <p>
+                        <br>
+                    </p>
+                    <ul>
+                        <li>
+                            <i>Also true for other operations that directly hit the OS</i>
+                        </li>
+                        <li>
+                            <i>Batch up things, but as always there is a tradeoff.</i>
+                        </li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>MEMORY copies are NOT for Free</h2>
+                    <blockquote>ByteBuffer expose operations like slice(), duplicate() for a good reason</blockquote>
+                    <p>
+                        <br>
+                    </p>
+                    <p>
+                        <b>USE THEM!</b>
+                    </p>
+                </section>
+
+                <section>
+                    <h2>Zero-Memory-COPY a.k.a FileChannel</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <ul>
+                            <li>Many Operation Systems support it</li>
+                            <li>Helps to write File content to a Channel in an efficient way</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <blockquote>Only possible if you not need to transform the data during transfer!</blockquote>
+                </section>
+
+                <section>
+                    <h2>Throttle READS / Writes /Accepts</h2>
+                    <div>
+                        <ul>
+                            <li>Otherwise you will have fun with OOM</li>
+                            <li>interestedOps(..) update to the rescue!</li>
+                            <li>This will push the "burden" to the network stack</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <blockquote>But not call interestedOps(...) too often, its expensive!</blockquote>
+                    <p>
+                        <br>
+                    </p>
+                    <p>
+                        <i>https://github.com/netty/netty/issues/1024</i>
+                        <br>
+                    </p>
+                </section>
+
+                <section>
+                    <h2>Don't register for OP_WRITE</h2>
+                    <div>
+                        <ul>
+                            <li>Don't register for OP_WRITE on the Selector by default</li>
+                            <li>Only do if you could not write the complete buffer</li>
+                            <li>Remove OP_WRITE from interestedOps() after you was able to write</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <blockquote>Remember most of the times the Channel is writable!</blockquote>
+                </section>
+
+                <section>
+                    <h2>Don't Block!</h2>
+                    <div>
+                        <ul>
+                            <li>Don't block the Thread that handles the IO</li>
+                            <li>You may be surprised what can block</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                        <blockquote>I look at you DNS resolution!</blockquote>
+                        <p>
+                        <br>
+                    </p>
+                    <blockquote>If you really need to block move it to an extra ThreadPool</blockquote>
+                </div>
+                </section>
+
+                <section>
+                    <h2>Blocking in Action</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <img src="images/blocking.png" style="border: none;">
+                        <br>
+                    </div>
+                    <div>
+                        <br>
+                    </div>
+                    <blockquote>RED != Good!</blockquote>
+                </section>
+
+                <section>
+                    <h2 style="">
+                        <span style="">selectionKey Operations</span>
+                    </h2>
+                    <div>
+                        <span style="">
+                            <br>
+                        </span>
+                    </div>
+                    <div>
+                        <span style="">
+                            <br>
+                        </span>
+                    </div>
+                    <div>SelectionKey.interestedOps(....);</div>
+                    <div>
+                        <br>
+                    </div>
+                    <blockquote>This method may be invoked at any time. Whether or not it blocks, and for how long is implementation-dependent</blockquote>
+                </section>
+
+                <section>
+                    <h2>Optimize&nbsp;</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <div style="">
+                            <b style="">BAD</b>
+                        </div>
+                        <pre><code>public void suspendRead() {
+    key.interestOps(key.interestOps() &amp; ~OP_READ);
+}</code></pre>
+                        <div>
+                            <b style="">
+                                <br>
+                            </b>
+                        </div>
+                        <div style="">
+                            <br>
+                        </div>
+                        <div style="">
+                            <br>
+                        </div>
+                        <div style="">
+                            <b>BETTER!</b>
+                        </div>
+                        <pre><code>public void suspendRead() {
+    int ops = key.interestOps();
+    if ((ops &amp; OP_READ) != 0) {
+        key.interestOps(ops &amp; ~OP_READ);
+    }
+}</code></pre>
+                        </div>
+                </section>
+
+                <section>
+                    <h2>BE&nbsp;Memory efficient&nbsp;</h2>
+                    <blockquote>When write a System that handles 100k of concurrent connections every saved memory count for long-living objects</blockquote>
+                </section>
+
+                <section>
+                    <h2>Memory Efficient Atomic</h2>
+                    <div>
+                        <ul>
+                            <li>AtomicReference &nbsp;=&gt; AtomicReferenceFieldUpdater</li>
+                            <li>AtomicBoolean =&gt; AtomicIntegerFieldUpdater</li>
+                            <li>
+                                <span style="">AtomicLong =&gt; AtomicIntegerFieldUpdater</span>
+                                <br>
+                            </li>
+                            <li>
+                                <span style="">
+                                    <span style="">AtomicInteger=&gt; AtomicIntegerFieldUpdater</span>
+                                    <br>
+                                </span>
+                            </li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <blockquote>It's ugly, but sometimes you just have to do it!</blockquote>
+                </section>
+
+                <section>
+                    <h2>Datastructures matter</h2>
+                    <div>
+                        <ul>
+                            <li>Think about what data-structure fits best</li>
+                            <li>Linked vs. Array based</li>
+                            <li>Access pattern ?!?</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>volatile</h2>
+                    <div>
+                        <ul>
+                            <li>Volatile reads are cheap.... But still not for free</li>
+                            <li>Cache volatile variables if possible to minimize access<br>
+                            </li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Optimize</h2>
+                    <div>BAD</div>
+                    <pre><code>private volatile Selector selector;
+
+    public void method()  .... {
+        selector.select();
+        ....
+    }</code></pre>
+                    <p>
+                        <br>
+                    </p>
+                    <p>BETTER</p>
+                    <pre><code> private volatile Selector selector;
+
+    public void method()  .... {
+        Selector selector = this.selector;
+        selector.select();
+        ....
+    }</code></pre>
+                </section>
+                <section>
+                    <h2>Minimize stackdepth</h2>
+                    <div>
+                        <ul>
+                            <li>Deep stacks are our enemies, because they are expensive</li>
+                            <li>Use tail-recursive calls if possible&nbsp;</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <blockquote>WHY?</blockquote>
+                    <p>
+                        <br>
+                    </p>
+                    <blockquote>Everything that needs to be stored till the call is done needs memory...</blockquote>
+                </section>
+
+                <section>
+                    <h2>Use JDK7 if possible</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <blockquote>Allocation / Deallocation of ByteBuffers is a lot faster now...</blockquote>
+                    <p>
+                    <br>
+                </p>
+                <ul>
+                    <li>Also has some other goodies like: <b>NIO.2</b> , <b>UDP Multicast</b>, <b>SCTP</b></li>
+                </ul>
+                </section>
+
+                <section>
+                    <h2>Well defined Thread-Model</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <ul>
+                            <li>It makes development easier</li>
+                            <li>Reduce context-switching</li>
+                            <li>Reduce the need for synchronization in many cases</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Choose the correct Protocol</h2>
+                    <div>
+                        <ul>
+                            <li>UDP</li>
+                            <li>TCP</li>
+                            <li>SCTP</li>
+                            <li>UDT</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <blockquote>It's always a trade-off!</blockquote>
+                </section>
+
+                <section>
+                    <h2>Pipelining is Awesome</h2>
+                    <div>
+                        <ul>
+                            <li>Allow to send / receive more then one message before response</li>
+                            <li>This minimize send / receive operations&nbsp;</li>
+                            <li>Popular protocols which support Pipelining: <b>HTTP, SMTP, IMAP</b></li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <b>
+                                <br>
+                            </b>
+                        </div>
+                    </div>
+                    <div style="text-align: left;">
+                        <b>
+                            <br>
+                        </b>
+                    </div>
+                    <blockquote>
+                        <b>If you write your own protocol think about Pipelining!&nbsp;</b>
+                    </blockquote>
+                </section>
+
+                <section>
+                    <h2>Don't want to Hassle</h2>
+                    <blockquote>There are a few frameworks to rescue....</blockquote>
+                    <div>
+                        <ul>
+                            <li>Netty</li>
+                            <li>Vert.x</li>
+                            <li>Xnio</li>
+                            <li>Grizzly</li>
+                            <li>Apache Mina</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Want to Learn More</h2>
+                    <blockquote>Attend my talk about Netty 4 tomorrow ;)</blockquote>
+                </section>
+
+                <section>
+                    <h2>Questions?</h2>
+                </section>
+
+                <section>
+                    <h2>Thanks</h2>
+                </section>
+            </div>
+        </div>
+
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.min.js"></script>
+
+		<script>
+
+			// Full list of configuration options available here:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+				transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/fade/none
+
+				// Optional libraries used to extend on reveal.js
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/showdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+					{ src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+					// { src: 'plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>

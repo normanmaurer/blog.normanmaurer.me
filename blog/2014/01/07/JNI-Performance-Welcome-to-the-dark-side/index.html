@@ -76,7 +76,7 @@
               <p>Seriously ?</p>
             </blockquote>
             
-            <p>Yeah&#8230; The idea was to write a transport implementation that outperforms what ships with <code>java.nio</code> by making optimal use of the Thread-Model that powers Netty and is optimized for linux. Also, I wanted to practice my C and JNI skills again, as they felt a bit rusty. This blog post will talk about some performance issues related to JNI and other pitfalls that I encountered while working on the transport.</p>
+            <p>Yeah… The idea was to write a transport implementation that outperforms what ships with <code>java.nio</code> by making optimal use of the Thread-Model that powers Netty and is optimized for linux. Also, I wanted to practice my C and JNI skills again, as they felt a bit rusty. This blog post will talk about some performance issues related to JNI and other pitfalls that I encountered while working on the transport.</p>
             
             <p>I will write up an extra post about the transport itself once it is opensourced, which will be in the next few weeks. In short, it outperforms the other netty transport which uses java.nio. This comes as no surprise as the provided one by java.nio must be more generic than what I needed for netty and linux.</p>
             
@@ -86,7 +86,7 @@
             
             <p><a href="http://www.flickr.com/photos/isherwoodchris/7074633375/">Chris Isherwood</a></p>
             
-            <p>There are a few techniques you can use to improve the performance. These sections will cover them&#8230; </p>
+            <p>There are a few techniques you can use to improve the performance. These sections will cover them… </p>
             
             <h2 id="caching-jmethodid-jfieldid-and-jclass">Caching jmethodID, jfieldID and jclass</h2>
             <p>When you work with JNI you often need to either access a method of a java object (<code>jobject</code>) or a field which holds some value.
@@ -103,7 +103,7 @@
             <p>There is a solution, however, which will allow you to cache the <code>jclass</code> and eliminate subsequent lookups. JNI provides special methods to "convert" a local reference to a global one which is guaranteered to not be GC'ed until it is explicitly removed. For example:</p>
             
             <pre class="syntax clang">&#x000A;jclass bufferCls;&#x000A;&#x000A;// Is automatically called once the native code is loaded via System.loadLibary(...);&#x000A;jint JNI_OnLoad(JavaVM* vm, void* reserved) {&#x000A;    JNIEnv* env;&#x000A;    if ((*vm)-&gt;GetEnv(vm, (void **) &amp;env, JNI_VERSION_1_6) != JNI_OK) {&#x000A;        return JNI_ERR;&#x000A;    } else {&#x000A;        jclass localBufferCls = (*env)-&gt;FindClass(env, "java/nio/ByteBuffer");&#x000A;        bufferCls = (jclass) (*env)-&gt;NewGlobalRef(env, localBufferCls);&#x000A;    }&#x000A;}&#x000A;&#x000A;// Is automatically called once the Classloader is destroyed&#x000A;void JNI_OnUnload(JavaVM *vm, void *reserved) {&#x000A;    JNIEnv* env;&#x000A;    if ((*vm)-&gt;GetEnv(vm, (void **) &amp;env, JNI_VERSION_1_6) != JNI_OK) {&#x000A;        // Something is wrong but nothing we can do about this :(&#x000A;        return;&#x000A;    } else {&#x000A;        // delete global references so the GC can collect them&#x000A;        if (bufferCls != NULL) {&#x000A;            (*env)-&gt;DeleteGlobalRef(env, bufferCls);&#x000A;        }&#x000A;    }&#x000A;}</pre>
-            <p>Please note the explicit free of the global reference by calling `DeleteGlobalRef(&#8230;). This is needed to prevent a memory leak as the GC is not allowed to release it. So remember this!</p>
+            <p>Please note the explicit free of the global reference by calling `DeleteGlobalRef(…). This is needed to prevent a memory leak as the GC is not allowed to release it. So remember this!</p>
             
             <h2 id="crossing-the-borders">Crossing the borders</h2>
             <p>Typically, you have some native code which calls from java into your C code, but there are sometimes also situations where you need to access some data from your C (JNI) code that is stored in the java object itself. For this, you can call "back" into java from within the C code. One problem that is often overlooked is the performance hit it takes to cross the border. This is especially true when you call back from C into java.  </p>
@@ -120,7 +120,7 @@
             
             <pre class="syntax clang">&#x000A;JNIEXPORT jlong JNICALL Java_io_netty_jni_internal_Native_writev(JNIEnv * env, jclass clazz, jint fd, jobjectArray buffers, jint offset, jint length) {&#x000A;    struct iovec iov[length];&#x000A;    int i;&#x000A;    int iovidx = 0;&#x000A;    for (i = offset; i &lt; length; i++) {&#x000A;        jobject bufObj = (*env)-&gt;GetObjectArrayElement(env, buffers, i);&#x000A;        jint pos = (*env)-&gt;GetIntField(env, bufObj, posFieldId);&#x000A;&#x000A;        jint limit = (*env)-&gt;GetIntField(env, bufObj, limitFieldId);&#x000A;        void *buffer = (*env)-&gt;GetDirectBufferAddress(env, bufObj);&#x000A;        iov[iovidx].iov_base = buffer + pos;&#x000A;        iov[iovidx].iov_len = limit - pos;&#x000A;        iovidx++;&#x000A;    }&#x000A;    ...&#x000A;     // code to write to the fd &#x000A;     ...&#x000A;}</pre>
             
-            <p>This change resulted in a boost of about 63k req/sec for a total of about <em>593k req/sec</em>! Not bad at all&#8230; </p>
+            <p>This change resulted in a boost of about 63k req/sec for a total of about <em>593k req/sec</em>! Not bad at all… </p>
             
             <p>Each benchmark iteration included a 20 minute warmup period followed by 3 runs of 2 minutes to gather the actual data.</p>
             
@@ -172,7 +172,7 @@
             <p>Doing the isCopy check may save you an array copy, so it's a good practice. There are more JNI methods that allow you to specify a mode, for which this advice also applies.</p>
             
             <h2 id="summary">Summary</h2>
-            <p>Hopefully, this post gave you some insight about JNI and the performance impact some operations have. The next post will cover the native transport for netty in detail, and give you some concrete numbers in terms of performance. So stay tuned &#8230;.</p>
+            <p>Hopefully, this post gave you some insight about JNI and the performance impact some operations have. The next post will cover the native transport for netty in detail, and give you some concrete numbers in terms of performance. So stay tuned ….</p>
             
             <p>Thanks again to <a href="https://twitter.com/nitsanw">Nitsan Wakart</a> , <a href="https://twitter.com/daschl">Michael Nitschinger</a> and <a href="https://twitter.com/jcrossley3">Jim Crossley</a> for the review!</p>
             

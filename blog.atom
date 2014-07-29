@@ -2,13 +2,262 @@
 <feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom">
   <id>http://normanmaurer.me/</id>
   <title>Normans rant's and more</title>
-  <updated>2014-05-15T20:18:15+02:00</updated>
+  <updated>2014-07-26T09:01:54-07:00</updated>
   <link href="http://normanmaurer.me/blog.atom" rel="self" type="application/atom+xml" />
   <link href="http://normanmaurer.me/" rel="alternate" type="text/html" />
   <entry>
+    <id>http://normanmaurer.me/blog/2014/07/25/JNI-Performance-The-Saga-continues/</id>
+    <title>JNI Performance - The Saga continues</title>
+    <updated>2014-07-26T09:01:54-07:00</updated>
+    <published>2014-07-25T00:00:00+00:00</published>
+    <link href="http://normanmaurer.me/blog/2014/07/25/JNI-Performance-The-Saga-continues/" rel="alternate" type="text/html" />
+    <author>
+      <name>normanmaurer</name>
+    </author>
+    <summary>
+      
+      While I did benchmark the native transport of Netty I noticed the performance of gathering writes was not quite what I had expected.
+      
+      Use
+      Let me welcome you to the dark side!
+      
+      
+      
+      Chris Isherwood
+      
+      There are a few techniques you can use to improve the performance. These sections will cover them…
+      
+      Caching jmethodID, jfieldID and jclass
+      When you work with JNI you often need to either access a method of a java object (jobject) or a field which holds some value.
+      Also, you often need to get the class (jclass) to instantiate a new Object and return it from within your JNI call. All of this means...
+    </summary>
+    <content type="html">
+      
+      &lt;p&gt;While I did benchmark the native transport of Netty I noticed the performance of gathering writes was not quite what I had expected.&lt;/p&gt;
+      
+      &lt;h2 id=&quot;use&quot;&gt;Use&lt;/h2&gt;
+      &lt;p&gt;Let me welcome you to the dark side!&lt;/p&gt;
+      
+      &lt;p&gt;&lt;img src=&quot;http://normanmaurer.me/blog/images/dark_side.jpg&quot; alt=&quot;AtomicExample&quot; title=&quot;Welcome to the dark side!&quot;&gt;&lt;/p&gt;
+      
+      &lt;p&gt;&lt;a href=&quot;http://www.flickr.com/photos/isherwoodchris/7074633375/&quot;&gt;Chris Isherwood&lt;/a&gt;&lt;/p&gt;
+      
+      &lt;p&gt;There are a few techniques you can use to improve the performance. These sections will cover them…&lt;/p&gt;
+      
+      &lt;h2 id=&quot;caching-jmethodid-jfieldid-and-jclass&quot;&gt;Caching jmethodID, jfieldID and jclass&lt;/h2&gt;
+      &lt;p&gt;When you work with JNI you often need to either access a method of a java object (&lt;code&gt;jobject&lt;/code&gt;) or a field which holds some value.
+      Also, you often need to get the class (jclass) to instantiate a new Object and return it from within your JNI call. All of this means you will need to make a &quot;lookup&quot; to get access to the needed &lt;code&gt;jmethodID&lt;/code&gt;, &lt;code&gt;jfieldID&lt;/code&gt; or &lt;code&gt;jclass&lt;/code&gt;. But this doesn't come for free. Each lookup takes time and so affects performance if you are kicking the tires hard enough.&lt;/p&gt;
+      
+      &lt;p&gt;Luckily enough, there is a solution: caching.&lt;/p&gt;
+      
+      &lt;p&gt;Caching of &lt;code&gt;jmethodID&lt;/code&gt; and &lt;code&gt;jfieldID&lt;/code&gt; is straight forward. All you need to do is lookup the &lt;code&gt;jmethodID&lt;/code&gt; or &lt;code&gt;jfieldID&lt;/code&gt; and store it in a global field.&lt;/p&gt;
+      
+      &lt;pre class=&quot;syntax clang&quot;&gt;
+      jmethodID limitMethodId;
+      jfieldID limitFieldId;
+      
+      // Is automatically called once the native code is loaded via System.loadLibary(...);
+      jint JNI_OnLoad(JavaVM* vm, void* reserved) {
+          JNIEnv* env;
+          if ((*vm)-&amp;gt;GetEnv(vm, (void **) &amp;amp;env, JNI_VERSION_1_6) != JNI_OK) {
+              return JNI_ERR;
+          } else {
+              jclass cls = (*env)-&amp;gt;FindClass(&quot;java/nio/Buffer&quot;);
+              // Get the id of the Buffer.limit() method.
+              limitMethodId = (*env)-&amp;gt;GetMethodID(env, cls, &quot;limit&quot;, &quot;()I&quot;);
+      
+              // Get int limit field of Buffer
+              limitFieldId = (*env)-&amp;gt;GetFieldID(env, cls, &quot;limit&quot;, &quot;I&quot;);
+          }
+      }&lt;/pre&gt;
+      
+      &lt;p&gt;This way, every time you need to either access the field or the method you can just reuse the global &lt;code&gt;jmethodID&lt;/code&gt; and &lt;code&gt;jfieldID&lt;/code&gt;. This is safe even from different threads. You may be tempted to do the same with &lt;code&gt;jclass&lt;/code&gt;, and it may work at first, but then bombs out later. This is because jclass is handled as a local reference and so can be recycled by the GC.&lt;/p&gt;
+      
+      &lt;p&gt;There is a solution, however, which will allow you to cache the &lt;code&gt;jclass&lt;/code&gt; and eliminate subsequent lookups. JNI provides special methods to &quot;convert&quot; a local reference to a global one which is guaranteered to not be GC'ed until it is explicitly removed. For example:&lt;/p&gt;
+      
+      &lt;pre class=&quot;syntax clang&quot;&gt;
+      jclass bufferCls;
+      
+      // Is automatically called once the native code is loaded via System.loadLibary(...);
+      jint JNI_OnLoad(JavaVM* vm, void* reserved) {
+          JNIEnv* env;
+          if ((*vm)-&amp;gt;GetEnv(vm, (void **) &amp;amp;env, JNI_VERSION_1_6) != JNI_OK) {
+              return JNI_ERR;
+          } else {
+              jclass localBufferCls = (*env)-&amp;gt;FindClass(env, &quot;java/nio/ByteBuffer&quot;);
+              bufferCls = (jclass) (*env)-&amp;gt;NewGlobalRef(env, localBufferCls);
+          }
+      }
+      
+      // Is automatically called once the Classloader is destroyed
+      void JNI_OnUnload(JavaVM *vm, void *reserved) {
+          JNIEnv* env;
+          if ((*vm)-&amp;gt;GetEnv(vm, (void **) &amp;amp;env, JNI_VERSION_1_6) != JNI_OK) {
+              // Something is wrong but nothing we can do about this :(
+              return;
+          } else {
+              // delete global references so the GC can collect them
+              if (bufferCls != NULL) {
+                  (*env)-&amp;gt;DeleteGlobalRef(env, bufferCls);
+              }
+          }
+      }&lt;/pre&gt;
+      &lt;p&gt;Please note the explicit free of the global reference by calling `DeleteGlobalRef(…). This is needed to prevent a memory leak as the GC is not allowed to release it. So remember this!&lt;/p&gt;
+      
+      &lt;h2 id=&quot;crossing-the-borders&quot;&gt;Crossing the borders&lt;/h2&gt;
+      &lt;p&gt;Typically, you have some native code which calls from java into your C code, but there are sometimes also situations where you need to access some data from your C (JNI) code that is stored in the java object itself. For this, you can call &quot;back&quot; into java from within the C code. One problem that is often overlooked is the performance hit it takes to cross the border. This is especially true when you call back from C into java.  &lt;/p&gt;
+      
+      &lt;p&gt;The same problem hit me hard when I implemented the writev method of my native transport. This method basically takes an array of &lt;code&gt;ByteBuffer&lt;/code&gt; objects and tries to write them via gathering writes for performances reasons. My first approach was to lookup the &lt;code&gt;ByteBuffer.limit()&lt;/code&gt; and &lt;code&gt;ByteBuffer.position()&lt;/code&gt; methods and cache their `jmethodID's as explained before. This yielded the following:&lt;/p&gt;
+      
+      &lt;pre class=&quot;syntax clang&quot;&gt;
+      JNIEXPORT jlong JNICALL Java_io_netty_jni_internal_Native_writev(JNIEnv * env, jclass clazz, jint fd, jobjectArray buffers, jint offset, jint length) {
+          struct iovec iov[length];
+          int i;
+          int iovidx = 0;
+          for (i = offset; i &amp;lt; length; i++) {
+              jobject bufObj = (*env)-&amp;gt;GetObjectArrayElement(env, buffers, i);
+              jint pos = (*env)-&amp;gt;CallIntMethod(env, bufObj, posId, NULL);
+      
+              jint limit = (*env)-&amp;gt;CallIntMethod(env, bufObj, limitId, NULL);
+              void *buffer = (*env)-&amp;gt;GetDirectBufferAddress(env, bufObj);
+              iov[iovidx].iov_base = buffer + pos;
+              iov[iovidx].iov_len = limit - pos;
+              iovidx++;
+          }
+          ...
+          // code to write to the fd
+          ...
+      }&lt;/pre&gt;
+      
+      &lt;p&gt;After the first benchmark, I was wondering why the speed was not matching my expections. I was only able to get about &lt;em&gt;530k req/sec&lt;/em&gt; with the following command against my webserver implementation:&lt;/p&gt;
+      
+      &lt;pre&gt;&lt;code&gt;# wrk-pipeline -H 'Host: localhost' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Connection: keep-alive' -d 120 -c 256 -t 8 --pipeline 16 http://127.0.0.1:8080/plaintext
+      &lt;/code&gt;&lt;/pre&gt;
+      
+      &lt;p&gt;After more thinking, I suspected that calling back into java code so often during the loop was the cause of the problems. So I checked the openjdk source code to find the names of the actual fields that hold the limit and position values. I changed my code as follows:&lt;/p&gt;
+      
+      &lt;pre class=&quot;syntax clang&quot;&gt;
+      JNIEXPORT jlong JNICALL Java_io_netty_jni_internal_Native_writev(JNIEnv * env, jclass clazz, jint fd, jobjectArray buffers, jint offset, jint length) {
+          struct iovec iov[length];
+          int i;
+          int iovidx = 0;
+          for (i = offset; i &amp;lt; length; i++) {
+              jobject bufObj = (*env)-&amp;gt;GetObjectArrayElement(env, buffers, i);
+              jint pos = (*env)-&amp;gt;GetIntField(env, bufObj, posFieldId);
+      
+              jint limit = (*env)-&amp;gt;GetIntField(env, bufObj, limitFieldId);
+              void *buffer = (*env)-&amp;gt;GetDirectBufferAddress(env, bufObj);
+              iov[iovidx].iov_base = buffer + pos;
+              iov[iovidx].iov_len = limit - pos;
+              iovidx++;
+          }
+          ...
+           // code to write to the fd
+           ...
+      }&lt;/pre&gt;
+      
+      &lt;p&gt;This change resulted in a boost of about 63k req/sec for a total of about &lt;em&gt;593k req/sec&lt;/em&gt;! Not bad at all…&lt;/p&gt;
+      
+      &lt;p&gt;Each benchmark iteration included a 20 minute warmup period followed by 3 runs of 2 minutes to gather the actual data.&lt;/p&gt;
+      
+      &lt;p&gt;The following graphs show the outcome in detail:&lt;/p&gt;
+      
+      &lt;p&gt;&lt;img src=&quot;http://normanmaurer.me/blog/images/jni_request_sec.png&quot; alt=&quot;RequestsPerSecond&quot; title=&quot;Requests per second&quot;&gt;&lt;/p&gt;
+      
+      &lt;p&gt;&lt;img src=&quot;http://normanmaurer.me/blog/images/jni_transfer_sec.png&quot; alt=&quot;TransferPerSecond&quot; title=&quot;Transfer (MB) per second&quot;&gt;&lt;/p&gt;
+      
+      &lt;p&gt;Lessons learned here are that crossing the border is quite expensive when you are pushing hard enough. The down-side of accessing the fields directly is that a change to the field itself will break your code.  In the actual code (which I will blog about and release soon), this is handled gracefully by falling back to using the methods if the fields aren't found, and logging a warning.&lt;/p&gt;
+      
+      &lt;h2 id=&quot;releasing-with-care&quot;&gt;Releasing with care&lt;/h2&gt;
+      
+      &lt;p&gt;When using JNI, you often have to convert from some of the various &lt;code&gt;j*Array&lt;/code&gt; instances to a pointer and release it again after you are done. So make sure all the changes are &quot;synced&quot; between the array you passed to the jni method and the pointer you used within the jni code.
+      When calling &lt;code&gt;Release*ArrayElements(...)&lt;/code&gt; you have to specify a mode to tell the JVM how it should handle the syncing of the array you passed in and the one used within your JNI code.&lt;/p&gt;
+      
+      &lt;p&gt;Different modes are:&lt;/p&gt;
+      
+      &lt;ul&gt;
+        &lt;li&gt;
+          &lt;p&gt;&lt;strong&gt;0&lt;/strong&gt;&lt;/p&gt;
+      
+          &lt;p&gt;Default: copy everything from the native array to the java array, and free the java array.&lt;/p&gt;
+        &lt;/li&gt;
+        &lt;li&gt;
+          &lt;p&gt;&lt;strong&gt;JNI_ABORT&lt;/strong&gt;&lt;/p&gt;
+      
+          &lt;p&gt;Don't touch the java array but free it.&lt;/p&gt;
+        &lt;/li&gt;
+        &lt;li&gt;
+          &lt;p&gt;&lt;strong&gt;JNI_COMMIT&lt;/strong&gt;&lt;/p&gt;
+      
+          &lt;p&gt;Copy everything from the native array to the java array, but don't free it. It must be freed later.&lt;/p&gt;
+        &lt;/li&gt;
+      &lt;/ul&gt;
+      
+      &lt;p&gt;Often people just use mode 0 as it is the &quot;safest&quot;. But using 0 when you actually don't need it gives you a performance penality. Why?
+      Mainly because using 0 will trigger an array copy all the time, but there are two situations where you won't need the array copy at all:&lt;/p&gt;
+      
+      &lt;ol&gt;
+        &lt;li&gt;You are not changing the values in the array at all; only reading them.&lt;/li&gt;
+        &lt;li&gt;The JVM returns a direct pointer to the java array which is pinned in memory. When this is the case, you won't need to copy the array over as you operate directly on the same data used by java itself. Whether or not the JVM does this depends on the JNI implementation. Because of this, you need to pass in a pointer to a jboolean when you obtain the elements. The value of this jboolean indicates whether a copy was made or if it is just pinned.&lt;/li&gt;
+      &lt;/ol&gt;
+      
+      &lt;p&gt;The following code modifies the native array and then checks if it needs to copy the data back or not.&lt;/p&gt;
+      
+      &lt;pre class=&quot;syntax clang&quot;&gt;
+      JNIEXPORT jint JNICALL Java_io_netty_jni_internal_Native_epollWait(JNIEnv * env, jclass clazz, jint efd, jlongArray events, jint timeout) {
+          int len = (*env)-&amp;gt;GetArrayLength(env, events);
+          struct epoll_event ev[len];
+          int ready;
+      
+          // blocks until ev is filled and return if ready &amp;lt; 1.
+          ....
+      
+          jboolean isCopy;
+      
+          jlong *elements = (*env)-&amp;gt;GetLongArrayElements(env, events, &amp;amp;isCopy);
+          if (elements == NULL) {
+              // No memory left ?!?!?
+              throwOutOfMemoryError(env, &quot;Can't allocate memory&quot;);
+              return return -1;
+          }
+          int i;
+          for (i = 0; i &amp;lt; ready; i++) {
+              elements[i] = ev[i].data.u64;
+          }
+      
+          jint mode;
+          // release again to prevent memory leak
+          if (isCopy) {
+              mode = 0;
+          } else {
+              // was just pinned so use JNI_ABORT to eliminate not needed copy.
+              mode = JNI_ABORT;
+          }
+          (*env)-&amp;gt;ReleaseLongArrayElements(env, events, elements, mode);
+      
+          return ready;
+      }&lt;/pre&gt;
+      
+      &lt;p&gt;Doing the isCopy check may save you an array copy, so it's a good practice. There are more JNI methods that allow you to specify a mode, for which this advice also applies.&lt;/p&gt;
+      
+      &lt;h2 id=&quot;summary&quot;&gt;Summary&lt;/h2&gt;
+      &lt;p&gt;Hopefully, this post gave you some insight about JNI and the performance impact some operations have. The next post will cover the native transport for netty in detail, and give you some concrete numbers in terms of performance. So stay tuned ….&lt;/p&gt;
+      
+      &lt;p&gt;Thanks again to &lt;a href=&quot;https://twitter.com/nitsanw&quot;&gt;Nitsan Wakart&lt;/a&gt; , &lt;a href=&quot;https://twitter.com/daschl&quot;&gt;Michael Nitschinger&lt;/a&gt; and &lt;a href=&quot;https://twitter.com/jcrossley3&quot;&gt;Jim Crossley&lt;/a&gt; for the review!&lt;/p&gt;
+      
+      &lt;h2 id=&quot;usefull-jni-links&quot;&gt;Usefull JNI Links&lt;/h2&gt;
+      
+      &lt;p&gt;&lt;a href=&quot;http://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/jniTOC.html&quot;&gt;Java Native Interface Specification&lt;/a&gt;&lt;/p&gt;
+      
+      &lt;p&gt;&lt;a href=&quot;https://thenewcircle.com/s/post/1292/jni_reference_example&quot;&gt;JNI Reference Example&lt;/a&gt;&lt;/p&gt;
+      
+      &lt;p&gt;&lt;a href=&quot;http://developer.android.com/training/articles/perf-jni.html&quot;&gt;JNI Tips&lt;/a&gt;&lt;/p&gt;
+    </content>
+  </entry>
+  <entry>
     <id>http://normanmaurer.me/blog/2014/05/15/Inline-all-the-Things/</id>
     <title>Inline all the things</title>
-    <updated>2014-05-15T20:18:15+02:00</updated>
+    <updated>2014-05-15T11:18:43-07:00</updated>
     <published>2014-05-15T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2014/05/15/Inline-all-the-Things/" rel="alternate" type="text/html" />
     <author>
@@ -160,7 +409,7 @@
               }
               ...
           }&lt;/pre&gt;
-      &lt;p&gt;What the method does is to read messages and the pass them through a pipeline for further processing. But how to make the method smaller without loose functionality? The key here is that the method checks on every execution if &lt;code&gt;isAutoRead() == false&lt;/code&gt; and if not remove the interest ops from the SelectionKey. But the default is &lt;code&gt;true&lt;/code&gt; and will never be &lt;code&gt;false&lt;/code&gt; and almost noone will ever cheange this behavior (as it's for advanced usage only). So why not move the code out there, as we only need to save a few bytes&amp;#8230;&lt;/p&gt;
+      &lt;p&gt;What the method does is to read messages and the pass them through a pipeline for further processing. But how to make the method smaller without loose functionality? The key here is that the method checks on every execution if &lt;code&gt;isAutoRead() == false&lt;/code&gt; and if not remove the interest ops from the SelectionKey. But the default is &lt;code&gt;true&lt;/code&gt; and will never be &lt;code&gt;false&lt;/code&gt; and almost noone will ever cheange this behavior (as it's for advanced usage only). So why not move the code out there, as we only need to save a few bytes…&lt;/p&gt;
       
       &lt;p&gt;So here we go:&lt;/p&gt;
       
@@ -217,13 +466,13 @@
       
       &lt;h4 id=&quot;summary&quot;&gt;Summary&lt;/h4&gt;
       
-      &lt;p&gt;So does it worth all the effort? As always it depends&amp;#8230;  But if you are sure the hot-method is the one for the common use-pattern and you can split it up to move the &quot;non-common&quot; path out of the method and not make it complex as hell, YES it worth it.&lt;/p&gt;
+      &lt;p&gt;So does it worth all the effort? As always it depends…  But if you are sure the hot-method is the one for the common use-pattern and you can split it up to move the &quot;non-common&quot; path out of the method and not make it complex as hell, YES it worth it.&lt;/p&gt;
     </content>
   </entry>
   <entry>
     <id>http://normanmaurer.me/blog/2014/04/17/Reactive-Streams/</id>
     <title>Reactive Streams</title>
-    <updated>2014-05-15T20:17:29+02:00</updated>
+    <updated>2014-05-15T11:18:43-07:00</updated>
     <published>2014-04-17T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2014/04/17/Reactive-Streams/" rel="alternate" type="text/html" />
     <author>
@@ -270,7 +519,7 @@
   <entry>
     <id>http://normanmaurer.me/blog/2014/01/07/JNI-Performance-Welcome-to-the-dark-side/</id>
     <title>JNI Performance - Welcome to the dark side</title>
-    <updated>2014-05-15T20:17:29+02:00</updated>
+    <updated>2014-05-15T11:18:43-07:00</updated>
     <published>2014-01-07T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2014/01/07/JNI-Performance-Welcome-to-the-dark-side/" rel="alternate" type="text/html" />
     <author>
@@ -284,7 +533,7 @@
         Seriously ?
       
       
-      Yeah&#8230; The idea was to write a transport implementation that outperforms what ships with java.nio by making optimal use of the Thread-Model that powers Netty and is optimized for linux....
+      Yeah… The idea was to write a transport implementation that outperforms what ships with java.nio by making optimal use of the Thread-Model that powers Netty and is optimized for linux....
     </summary>
     <content type="html">
       
@@ -294,7 +543,7 @@
         &lt;p&gt;Seriously ?&lt;/p&gt;
       &lt;/blockquote&gt;
       
-      &lt;p&gt;Yeah&amp;#8230; The idea was to write a transport implementation that outperforms what ships with &lt;code&gt;java.nio&lt;/code&gt; by making optimal use of the Thread-Model that powers Netty and is optimized for linux. Also, I wanted to practice my C and JNI skills again, as they felt a bit rusty. This blog post will talk about some performance issues related to JNI and other pitfalls that I encountered while working on the transport.&lt;/p&gt;
+      &lt;p&gt;Yeah… The idea was to write a transport implementation that outperforms what ships with &lt;code&gt;java.nio&lt;/code&gt; by making optimal use of the Thread-Model that powers Netty and is optimized for linux. Also, I wanted to practice my C and JNI skills again, as they felt a bit rusty. This blog post will talk about some performance issues related to JNI and other pitfalls that I encountered while working on the transport.&lt;/p&gt;
       
       &lt;p&gt;I will write up an extra post about the transport itself once it is opensourced, which will be in the next few weeks. In short, it outperforms the other netty transport which uses java.nio. This comes as no surprise as the provided one by java.nio must be more generic than what I needed for netty and linux.&lt;/p&gt;
       
@@ -304,7 +553,7 @@
       
       &lt;p&gt;&lt;a href=&quot;http://www.flickr.com/photos/isherwoodchris/7074633375/&quot;&gt;Chris Isherwood&lt;/a&gt;&lt;/p&gt;
       
-      &lt;p&gt;There are a few techniques you can use to improve the performance. These sections will cover them&amp;#8230; &lt;/p&gt;
+      &lt;p&gt;There are a few techniques you can use to improve the performance. These sections will cover them… &lt;/p&gt;
       
       &lt;h2 id=&quot;caching-jmethodid-jfieldid-and-jclass&quot;&gt;Caching jmethodID, jfieldID and jclass&lt;/h2&gt;
       &lt;p&gt;When you work with JNI you often need to either access a method of a java object (&lt;code&gt;jobject&lt;/code&gt;) or a field which holds some value.
@@ -364,7 +613,7 @@
               }
           }
       }&lt;/pre&gt;
-      &lt;p&gt;Please note the explicit free of the global reference by calling `DeleteGlobalRef(&amp;#8230;). This is needed to prevent a memory leak as the GC is not allowed to release it. So remember this!&lt;/p&gt;
+      &lt;p&gt;Please note the explicit free of the global reference by calling `DeleteGlobalRef(…). This is needed to prevent a memory leak as the GC is not allowed to release it. So remember this!&lt;/p&gt;
       
       &lt;h2 id=&quot;crossing-the-borders&quot;&gt;Crossing the borders&lt;/h2&gt;
       &lt;p&gt;Typically, you have some native code which calls from java into your C code, but there are sometimes also situations where you need to access some data from your C (JNI) code that is stored in the java object itself. For this, you can call &quot;back&quot; into java from within the C code. One problem that is often overlooked is the performance hit it takes to cross the border. This is especially true when you call back from C into java.  &lt;/p&gt;
@@ -418,7 +667,7 @@
            ...
       }&lt;/pre&gt;
       
-      &lt;p&gt;This change resulted in a boost of about 63k req/sec for a total of about &lt;em&gt;593k req/sec&lt;/em&gt;! Not bad at all&amp;#8230; &lt;/p&gt;
+      &lt;p&gt;This change resulted in a boost of about 63k req/sec for a total of about &lt;em&gt;593k req/sec&lt;/em&gt;! Not bad at all… &lt;/p&gt;
       
       &lt;p&gt;Each benchmark iteration included a 20 minute warmup period followed by 3 runs of 2 minutes to gather the actual data.&lt;/p&gt;
       
@@ -503,7 +752,7 @@
       &lt;p&gt;Doing the isCopy check may save you an array copy, so it's a good practice. There are more JNI methods that allow you to specify a mode, for which this advice also applies.&lt;/p&gt;
       
       &lt;h2 id=&quot;summary&quot;&gt;Summary&lt;/h2&gt;
-      &lt;p&gt;Hopefully, this post gave you some insight about JNI and the performance impact some operations have. The next post will cover the native transport for netty in detail, and give you some concrete numbers in terms of performance. So stay tuned &amp;#8230;.&lt;/p&gt;
+      &lt;p&gt;Hopefully, this post gave you some insight about JNI and the performance impact some operations have. The next post will cover the native transport for netty in detail, and give you some concrete numbers in terms of performance. So stay tuned ….&lt;/p&gt;
       
       &lt;p&gt;Thanks again to &lt;a href=&quot;https://twitter.com/nitsanw&quot;&gt;Nitsan Wakart&lt;/a&gt; , &lt;a href=&quot;https://twitter.com/daschl&quot;&gt;Michael Nitschinger&lt;/a&gt; and &lt;a href=&quot;https://twitter.com/jcrossley3&quot;&gt;Jim Crossley&lt;/a&gt; for the review!&lt;/p&gt;
       
@@ -519,7 +768,7 @@
   <entry>
     <id>http://normanmaurer.me/blog/2013/11/09/The-hidden-performance-costs-of-instantiating-Throwables/</id>
     <title>The hidden performance costs of instantiating Throwables</title>
-    <updated>2014-05-15T20:17:29+02:00</updated>
+    <updated>2014-05-15T11:18:43-07:00</updated>
     <published>2013-11-09T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2013/11/09/The-hidden-performance-costs-of-instantiating-Throwables/" rel="alternate" type="text/html" />
     <author>
@@ -676,7 +925,7 @@
   <entry>
     <id>http://normanmaurer.me/blog/2013/10/28/Lesser-known-concurrent-classes-Part-1/</id>
     <title>Lesser known concurrent classes - Atomic*FieldUpdater</title>
-    <updated>2014-05-15T20:17:29+02:00</updated>
+    <updated>2014-05-15T11:18:43-07:00</updated>
     <published>2013-10-28T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2013/10/28/Lesser-known-concurrent-classes-Part-1/" rel="alternate" type="text/html" />
     <author>

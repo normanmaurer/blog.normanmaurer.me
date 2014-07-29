@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>Vert.x - The next-gen polyglot asynchronous platform</title>
+
+		<meta name="description" content="A framework for easily creating beautiful presentations using HTML">
+		<meta name="author" content="Hakim El Hattab">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="css/reveal.min.css">
+		<link rel="stylesheet" href="css/theme/beige.css" id="theme">
+
+		<!-- For syntax highlighting -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- If the query includes 'print-pdf', use the PDF print sheet -->
+		<script>
+			document.write( '<link rel="stylesheet" href="css/print/' + ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">' );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+            <div class="slides">
+                <section>
+                    <div>
+                        <img src="images/vertx.jpg">
+                        <br>
+                    </div>
+
+                    <p>The next-gen polyglot asynchronous platform</p>
+                    <p>
+                        <font color="#666699">
+                            <a href="http://netty.io">http://vertx.io</a>
+                        </font>
+                    </p>
+                    <p>
+                        <font color="#666699">
+                            <a href="https://github.com/eclipse/vert.x ">https://github.com/eclipse/vert.x</a>
+                        </font>
+                    </p>
+                    <p>
+                        <font color="#666699">@vertx_project</font>
+                    </p>
+                </section>
+
+                <section>
+                    <h2>Norman Maurer</h2>
+                    <div>
+                        <h2 style="">
+                            <img src="images/redhat.png" style="border: none;">
+                        </h2>
+                    </div>
+                    <div>
+                        <li style="text-align: justify;">Red Hat (JBoss) - EAP Core Team</li>
+                        <li style="text-align: justify;">Former contractor for Apple Inc</li>
+                        <li style="text-align: justify;">Author - Netty in Action<br>
+                        </li>
+                        <li style="text-align: justify;">Apache Software Foundation Member</li>
+                        <li style="text-align: justify;">Netty &nbsp;/&nbsp;<span style="">Vert.x&nbsp;</span>Core-Developer and all things NIO</li>
+                        <li style="text-align: justify;">Java and Scala</li>
+                        <li style="text-align: justify;">Twitter: @normanmaurer</li>
+                        <li style="text-align: justify;">Github:  https://github.com/normanmaurer</li>
+                        <li style="text-align: justify;">Blog:    http://normanmaurer.me</li>
+
+                    </div>
+                </section>
+
+                <section>
+                    <h2>What is Vert.x ?</h2>
+                    <blockquote>Vert.x is a lightweight, high performance application platform for the JVM that's designed for modern mobile, web, and enterprise applications...</blockquote>
+                </section>
+
+                <section>
+                    <h2>General</h2>
+                    <div>
+                        <ul>
+                            <li>Asynchronous by nature</li>
+                            <li>General purpose</li>
+                            <li>High-Performing</li>
+                            <li>Polyglot</li>
+                            <li>Flexible</li>
+                        </ul>
+                        <div style="text-align: left;">
+                            <br>
+                        </div>
+                    </div>
+                    <div style="text-align: center;">... and many more</div>
+                </section>
+
+                <section>
+                    <h2>Asynchronous, what does this mean ?</h2>
+                </section>
+
+                <section>
+                    <h2>Asynchronous...</h2>
+                    <div>
+                        <ul>
+                            <li>I/O Operations don't block at all!</li>
+                            <li>Get notified once the operation completes</li>
+                            <li>Be able to share one Thread across many connections</li>
+                        </ul>
+                      <img src="images/boring_2.jpg" style="border: none;">
+                      <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/56223083@N06/5514161603/</p>
+                      <blockquote>As waiting is b0ring....</blockquote>
+                    </div>
+                </section>
+
+                <section>
+                    <blockquote>But synchronous / blocking IO &nbsp;served me well! Again, why should I care ?</blockquote>
+                </section>
+
+                <section>
+                    <h2>Blocking-IO may not SCALE!</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <blockquote>
+                        <font face="arial">
+                            <i>Usually a Thread takes memory from 256kb to 1mb for the stack space!</i>
+                        </font>
+                    </blockquote>
+                    <div>
+                        <br>
+                    </div>
+                    <h3>
+                        <i>Good luck with serving 1 million concurrent connections</i>
+                    </h3>
+                    <blockquote>Ouch....</blockquote>
+                </section>
+
+                <section>
+                    <img src="images/blew_it.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/djjasoncook/8608405432/</p>
+                </section>
+
+                <section>
+                    <h2>Vert.x to the rescue</h2>
+                    <img src="images/help_wanted.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/brizzlebornandbred/6136653327/</p>
+                </section>
+                <section>
+                    <h2>Philosophy</h2>
+                    <div>
+                        <ul>
+                            <li>Slim and leightweight core</li>
+                            <li>Everything else as module</li>
+                            <li>Reusable modules</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Supported Core Protocols</h2>
+                    <div>
+                        <ul>
+                            <li>TCP / UDP</li>
+                            <li>HTTP(s) and compression*</li>
+                            <li>WebSockets / Secure-WebSockets</li>
+                            <li>SockJS</li>
+                            <li>DNS Client*</li>
+                        </ul>
+                    </div>
+                        <br>
+                            * Will be avaible in 2.1.0
+                </section>
+
+                <section>
+                    <h2>Other Core Features</h2>
+                    <div>
+                        <ul>
+                            <li>FileSystem API</li>
+                            <li>EventBus</li>
+                            <li>Timer (Periodic, one-shot)</li>
+                            <li>Scaling</li>
+                            <li>Run compiled and source files</li>
+                            <li>Shared-data</li>
+                            <li>Standalone (container like) and Embedded mode</li>
+                            <li>Auto-redeploy of Modules</li>
+                            <li>Pumps</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Supported languages</h2>
+                    <div>
+                    <img src="images/polyglot_langs.png" style="border: none;">
+                    </div>
+                </section>
+
+               <section>
+                    <h2>Event-Loop</h2>
+                    <div>Someone needs to do the heavy work!</div>
+                    <img src="images/event_loop.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/stavos52093/9645884201/</p>
+                </section>
+
+                <section>
+                    <div>
+                        <ul>
+                            <li>Powered by n EventLoops (Usually one per Core)</li>
+                            <li>Each Verticle bound to one EventLoop and so single-Threaded</li>
+                            <li>No concurrency issues , YAY</li>
+                            <li>WorkerVerticle can be bound to an non EventLoop Thread</li>
+                            <li>WorkerVerticles are useful for blocking calls (like legancy frameworks)</li>
+                            <li>Run tasks on the EventLoop of the Verticle</li>
+                        </ul>
+                    </div>
+                </section>
+                <section>
+                    <blockquote>Don't block the Event-Loop</blockquote>
+                    <div>
+                         <img src="images/thumb_down.jpg">
+                         <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/1000photosofnewyorkcity/5550289939/</p>
+                    </div>
+                </section>
+                 <section>
+                    <h3>This includes:</h3>
+                    <div>
+                        <ul>
+                            <li>Thread.sleep(...)</li>
+                            <li>wait(...)</li>
+                            <li>Lock.lock(...)</li>
+                            <li>InputStream.read(...)</li>
+                            <li>OutputStream.write(...)</li>
+                    </div>
+                    <br>
+                    .... And many more
+                </section>
+                <section>
+                    <h2>Internals</h2>
+                    <div>
+                         <img src="images/internals.jpg">
+                         <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/kevincollins123/5353373997/</p>
+                    </div>
+                </section>
+                <section>
+                    <div>
+                        <ul>
+                            <li>Build on top of Netty 4</li>
+                            <li>Uses Hazelcast for node discovery</li>
+                            <li>Jackson for JSON</li>
+                            <li>Java7+</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Build-tool agnostic / IDE support</h2>
+                    <div>
+                        <ul>
+                            <li>Gradle template</li>
+                            <li>Maven archtype</li>
+                            <li>Works in any IDE without special configuration</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Modules</h2>
+                    <div>
+                         <img src="images/bricks.jpg">
+                         <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/s3a/4686060603/</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Modules - all over the place</h2>
+                    <div>
+                        <ul>
+                            <li>New non-core features done as modules</li>
+                            => No changes to core needed
+                            <li>Get involved more easily</li>
+                            <li>Runnable modules vs. includable modules</li>
+                            <li>Even new language support is done via modules!</li>
+                            <li>Modules are more less just a zip file (with meta-data)</li>
+                            <li>Modules can include / depend on other modules</li>
+                            <li>Applications are often bundled in modules</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Modules - Where to put them</h2>
+                    <div>
+                        <ul>
+                            <li>Upload your modules to maven repository or bintray</li>
+                            <li>Register the modules to the Module Registry</li>
+                            <li>No license restriction but ASL2 / BSD / MIT is welcome ;)</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Modules - Ready to use</h2>
+                    <div>
+                        <ul>
+                            <li>JDBC</li>
+                            <li>MongoDB</li>
+                            <li>Redis</li>
+                            <li>Mailer</li>
+                            <li>Yoke</li>
+                            <li>async-postgres / mysql*</li>
+                        </ul>
+                        <br>
+                        ... and many more
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Testing</h2>
+                    <div>
+                        <ul>
+                            <li>Testing Framework provided</li>
+                            <li>Intergration-Testing</li>
+                            <li>Unit Testing</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <blockquote>EventBus... Receive and Sent messages</blockquote>
+                    <img src="images/mailbox.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/94585506@N05/8614340534/</p>
+                </section>
+                <section>
+                    <h2>EventBus</h2>
+                    <div>
+                        <ul>
+                            <li>Pass messages around, prefered JSON</li>
+                            <li>Interact with other modules</li>
+                            <li>Pub-Sub, Request/Response</li>
+                            <li>May be distributed</li>
+                            <li>Can even be used on the Browser vi JavaScript</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>EventBus in action - Receive messages</h2>
+                    <div><pre><code class="java">public class Receiver extends Verticle {
+    @Override
+    public void start() {
+        vertx.eventBus().registerHandler("news-feed", new Handler<Message<String>>() {
+            @Override
+            public void handle(Message<String> message) {
+                System.out.println("Received news: " + message.body());
+            }
+        });
+    }
+}</code></pre></div>
+                </section>
+
+                <section>
+                    <h2>EventBus in action - Send messages</h2>
+                    <div><pre><code class="java">public class Sender extends Verticle {
+    @Override
+    public void start() {
+        // Publish some news on the feed every second
+        vertx.setPeriodic(1000, new Handler<Long>() {
+            @Override
+            public void handle(Long timerID) {
+                vertx.eventBus().publish("news-feed", "more news!");
+            }
+        });
+    }
+}</code></pre></div>
+                </section>
+
+                <section>
+                    <blockquote>Hmmm... so polyglot? Time to see it in action</blockquote>
+                    <img src="images/polyglot.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/virar-/4644450720/</p>
+                </section>
+
+                <section>
+                    <img src="images/java_logo_640_large_verge_medium_landscape.jpg" style="border: none;width: 200px">
+					<div><pre><code class="java">public class ServerExample extends Verticle {
+    @Override
+    public void start() {
+    	vertx.createHttpServer().requestHandler(new Handler<HttpServerRequest>() {
+            public void handle(HttpServerRequest req) {
+                req.response().headers().set(
+                     "Content-Type", "text/html; charset=UTF-8");
+                req.response().end(
+                     "&lt;html&gt;&lt;body&gt;&lt;h1&gt;Hello from Vert.x!&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;");
+            }
+        }).listen(8080);
+    }
+}</code></pre></div>
+                </section>
+
+                <section>
+                    <img src="images/javascript.png" style="border: none;width: 200px">
+					<div><pre><code class="javascript">var vertx = require('vertx')
+vertx.createHttpServer().requestHandler(function(req) {
+    req.response.end(
+		"&lt;html&gt;&lt;body&gt;&lt;h1&gt;Hello from Vert.x!&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;");
+}).listen(8080);</code></pre></div>
+                </section>
+
+                <section>
+                    <img src="images/groovy.png" style="border: none;width: 200px">
+                    <div><pre><code class="javascript">vertx.createHttpServer().requestHandler { req ->
+    req.response.end 
+        "&lt;html&gt;&lt;body&gt;&lt;h1&gt;Hello from Vert.x!&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;"
+}.listen(8080, "localhost")</code></pre></div>
+                </section>
+
+                <section>
+                    <h2>It's OpenSource - Contribute now!</h2>
+                    <div>
+                        <img src="images/empire_wants_you_2.jpg" style="border: none;">
+                        <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/legofenris/4499417549/</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Get Involved</h2>
+                    <div>
+                        <font face="impact">Mailinglist</font>
+                    </div>
+                    <div>
+                        https://groups.google.com/forum/#!forum/vertx<br>
+                    </div>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <font face="impact">IRC</font>
+                    </div>
+                    <div>#vertx irc.freenode.org</div>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <font face="impact">Website</font>
+                    </div>
+                    <div>
+                        <div style="">http://vertx.io</div>
+                    </div>
+                    <div style="">
+                        <br>
+                    </div>
+                    <div style="">
+                        <font face="impact">GitHub</font>
+                    </div>
+                    <div style="">
+                        <div style="">https://github.com/eclipse/vert.x/<br>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Other Project info</h2>
+                    <div>
+                        <ul>
+                            <li>Eclipse Foundation</li>
+                            <li>ASL2 License</li>
+                            <li>Community Driven</li>
+                            <li>Small Team but growing</li>
+                            <li>Current stable version 2.0.2.Final</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Things to come...</h2>
+                    <div>
+                        <ul>
+                            <li>HA/Clustering*</li>
+                            <li>Fat-Jars*</li>
+                            <li>StartTLS support</li>
+                            <li>More Performance tuning ;)</li>
+                            <li>Metrics ?</li>
+                            <li>Cluster-wide Shared-Data</li>
+                        </ul>
+                        <br>
+                                ... and many more
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Want to know more about internals...</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <blockquote>You may want to buy my book...</blockquote>
+                    <p>
+                        <br>
+                    </p>
+                    <p>
+                        <img src="images/netty_inaction.gif">
+                        <br>
+                    </p>
+                    <p>
+                        <i>http://www.manning.com/maurer/<br></i>
+                    </p>
+                    <p>
+                        <i>
+                            <br>
+                        </i>
+                    </p>
+                </section>
+               <section>
+                    <h2>Enough said... Demo time!</h2>
+                    <img src="images/crossing_fingers.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/64260010@N07/5853626947/</p>
+                </section>
+                <section>
+                    <h2>Questions please!</h2>
+                    <img src="images/riddler.jpg" style="border: none;">
+                    <p style="font-family:arial;font-size:12px;">© http://www.flickr.com/photos/photomequickbooth/3531951972/</p>
+                </section>
+
+                <section>
+                    <h2>Thanks!</h2>
+                    <div>
+                        <br>
+                    </div>
+                    <div>
+                        <br>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.min.js"></script>
+
+		<script>
+
+			// Full list of configuration options available here:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+				transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/fade/none
+
+				// Optional libraries used to extend on reveal.js
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/showdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+					{ src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+					// { src: 'plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>

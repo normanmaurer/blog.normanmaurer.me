@@ -1,0 +1,595 @@
+= Why _Netty_ ?
+@Netflix 2014 ; Las Gatos ; 2014/07/29
+include::attributes.adoc[]
+
+:experimental:
+:toc2:
+:sectanchors:
+:idprefix:
+:idseparator: -
+:icons: font
+:source-highlighter: coderay
+
+[.topic.source]
+== Norman Maurer, Principal Software Engineer / Leading Netty efforts @ Red Hat Inc.
+
+====
+* [icon-user]'{zwsp}' __Netty__ / All things NIO
+* [icon-user]'{zwsp}' Author of __Netty in Action__
+* [icon-twitter]'{zwsp}' @normanmaurer
+* [icon-github]'{zwsp}' github.com/normanmaurer
+====
+
+[.topic.source]
+== Netty - The non-blocking network framework
+
+"Because writing fast, non-blocking network code is non-trivial."
+-- Why Netty ?
+
+[.topic.source]
+== When I say fast, I mean fast
+
+image::techempower.png[width=700]
+....
+http://www.techempower.com/benchmarks/#section=data-r9&hw=i7&test=plaintext
+....
+
+[source]
+.+Response+
+----
+HTTP/1.1 200 OK
+Content-Length: 15
+Content-Type: text/plain; charset=UTF-8
+Server: Example
+Date: Wed, 17 Apr 2013 12:00:00 GMT
+
+Hello, World!
+----
+
+[.topic.source]
+== Even more speed in upcoming release
+
+NOTE: 256 concurrent connections
+
+NOTE: 256 requests pipelined
+
+[source]
+.+24 cores+
+----
+[nmaurer@xxx]~% wrk/wrk -H 'Host: localhost' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Connection: keep-alive' -d 120 -c 256 -t 16 --pipeline 256  http://xxx:8080/plaintext
+Running 2m test @ http://xxx:8080/plaintext
+  16 threads and 256 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    18.77ms   16.68ms 452.00ms   92.67%
+    Req/Sec   225.82k    41.95k  376.21k    67.34%
+  429966998 requests in 2.00m, 57.66GB read
+Requests/sec: 3583411.40
+Transfer/sec:    492.11MB
+----
+
+[.topic.source]
+== But..... WHY?
+
+image::homer.jpg[width=735]
+....
+https://www.flickr.com/photos/owyzzz/4934057731/
+....
+
+[.topic.source]
+== Fully asynchronous
+
+NOTE: Asychronous from the ground up
+
+NOTE: Using java.nio or native method calls for non-blocking io
+
+NOTE: Futures and callbacks provided for easy composing
+
+"Don't call us, we'll call you."
+-- Hollywood principle
+
+[.topic.source]
+== Hide complexity but not flexibility
+
+NOTE: Hides all the complexity involved when you use `java.nio` or `java.nio2`
+
+NOTE: Still powers you with a lot of flexibility
+
+NOTE: Unified API for every transport
+
+NOTE: Allows easy testing of your custom code.
+
+[.topic.source]
+== Protocol agnostic -> Not just another HTTP server
+
+NOTE: Supports `TCP`, `UDP`, `UDT`, `SCTP` out of the box
+
+NOTE: Contains codecs for different protocols on top of these
+
+
+[.topic.source]
+== Supported Codecs
+
+NOTE: HTTP, WebSockets ( + compression) , SPDY, HTTP 2
+
+NOTE: SSL/TLS, Zlib, Deflate
+
+NOTE: Protobufs, JBoss Marshalling, Java Serialization
+
+NOTE: DNS
+
+NOTE: Memcached, Stomp, Proxy, MQTT
+
+TIP: ...add your prefered protocol here...
+
+
+[.topic.source]
+== Thread-Model - Easy but powerful
+
+image::eventloop_diagram.jpg[width=400]
+
+TIP: Having inbound and outbound events handled by the same Thread simplifies concurrency handling a lot!
+
+
+[.topic.source]
+== Simple state model
+
+NOTE: Allows to react on each state change by intercept the states via `ChannelHandler`.
+
+TIP: Allows flexible handling depending on the needs.
+
+image::state.png[width=400]
+
+
+
+[.topic.source]
+== __ChannelPipeline__
+
+NOTE: Interceptor pattern
+
+NOTE: Allows to add building-blocks (`ChannelHandler`) on-the-fly that transform data or react on events
+
+[source,sh]
+.+Kind of a unix-pipe-like thing...+
+----
+$ echo "Netty is shit...." | sed -e 's/is /is the /' | cat <1>
+                    Netty is the shit....
+
+----
+
+<1> Think of the whole line to be the `ChannelPipeline` and `echo`, `sed` and `cat` the `ChannelHandler` s that allow to transform data.
+
+
+[.topic.source]
+== __ChannelPipeline__ - How does it work
+
+NOTE: Inbound and outbound events flow through the `ChannelHandler` s in the `ChannelPipeline` and so allow to react one these events.
+
+image::channel_pipeline.png[width=600]
+
+[.topic.source]
+== __ChannelPipeline__ - Compose processing logic
+
+TIP: Compose complex processing logic via multiple `ChannelHandler`.
+
+
+[source,java]
+----
+public class MyChannelInitializer extends ChannelInitializer<Channel> {
+  @Override
+  public void initChannel(Channel ch) {
+    ChannelPipeline p = ch.pipeline();
+    p.addLast(new SslHandler(...)); <1>
+    p.addLast(new HttpServerCodec(...)); <2>
+    p.addLast(new YourRequestHandler()); <3>
+  }
+}
+----
+<1> Encrypt traffic
+<2> Support HTTP
+<3> Your handler that receive the HTTP requests.
+
+
+[.topic.source]
+== __ChannelHandler__ - React on received data
+
+[source,java]
+----
+@Sharable
+public class EchoHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, Object msg) { <1>
+    ctx.writeAndFlush(msg);
+  }
+
+  @Override
+  public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) { <2>
+    cause.printStacktrace();
+    ctx.close();
+  }
+}
+----
+<1> Intercept received message and write it back to the remote peer
+<2> React on `Throwable` and close the connection
+
+
+[.topic.source]
+== __Decoder / Encoder__ - Transform data via ChannelHandler
+
+NOTE: Different abstract base classes for Decoder and Encoder
+
+NOTE: Handles buffering for you if needed (remember everything is non-blocking!)
+
+
+[.topic.source]
+== __Decoder / Encoder__ - Transform data via ChannelHandler
+
+[source,java]
+.+Transform received ByteBuf to String+
+----
+public class StringDecoder extends MessageToMessageDecoder<ByteBuf> {
+  @Override
+  protected void decode(ChannelHandlerContext ctx, ByteBuf msg, List<Object> out) {
+      out.add(msg.toString(charset));
+  }
+}
+----
+
+[source,java]
+.+Transform to be send String to ByteBuf+
+----
+public class StringEncoder extends MessageToMessageEncoder<String> {
+    @Override
+    protected void encode(ChannelHandlerContext ctx, String msg, List<Object> out) {
+        if (msg.length() == 0) return;
+        out.add(ByteBufUtil.encodeString(ctx.alloc(), CharBuffer.wrap(msg), charset));
+    }
+}
+----
+
+[.topic.source]
+== Adding other processing logic?
+
+TIP: Adding more processing logic is often a matter of adding __just-another__ `ChannelHandler` to the `ChannelPipeline`.
+
+
+image:win.jpg[width=300]
+....
+http://memegenerator.net/instance/43005548
+....
+
+
+[.topic.source]
+== Writing protocol multiplexers is a no-brainer!
+
+[source,java]
+----
+public class PortUnificationServerHandler extends ByteToMessageDecoder {
+  @Override
+  protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
+    if (in.readableBytes() < 5) return <1>
+    if (isSsl(in)) { <2>
+      ctx.pipeline().addLast("ssl", sslCtx.newHandler(ctx.alloc()));
+      ctx.pipeline().remove(this);
+    } else if (isGzip(in)) { ...
+    } else { <3>
+      ctx.close();
+    }
+  }
+}
+----
+<1> Will use the first five bytes to detect a protocol.
+<2> Check if SSL is used and if so add `SslHandler` to the `ChannelPipeline`.
+<3> Unknown protocol, just close the connection
+
+[.topic.source]
+== Flexible write behaviour
+
+NOTE: `Channel.write(...)` => write through the `ChannelPipeline` but __NOT__ trigger syscall like `write` or `writev`.
+
+NOTE: `Channel.flush()` => writes all pending data to the socket.
+
+TIP: Gives more flexibility for when things are written and also allows efficient pipelining.
+
+[.topic.source]
+== Easy HTTP Pipelining to safe syscalls by using write(...) and flush()!
+
+[source,java]
+----
+public class HttpPipeliningHandler extends SimpleChannelInboundHandler<HttpRequest> {
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, HttpRequest req) {
+    ChannelFuture future = ctx.writeAnd(createResponse(req)); <1>
+    if (!HttpHeaders.isKeepAlive(req)) {
+      future.addListener(ChannelFutureListener.CLOSE); <2>
+    }
+  }
+  @Override
+  public void channelReadComplete(ChannelHandlerContext ctx) {
+    ctx.flush(); <3>
+  }
+}
+----
+<1> __Write__ to the `Channel` (__No syscall!__) but not flush yet
+<2> After written __close__ socket
+<3> __Flush__ out to the socket once everything was ready from the `Channel
+
+[.topic.source]
+== Allow to detect slow remote peers
+
+image:speed_limit.jpg[width=250]
+....
+https://www.flickr.com/photos/kwl/4514986410
+....
+
+[source,java]
+----
+public class StateHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelWritabilityChanged(ChannelHandlerContext ctx) { } <1>
+}
+----
+<1> Is triggered once `Channel.isWritable()` changes.
+
+
+[.topic.source]
+== Execute ChannelHandler outside of EventLoop
+
+WARNING: Don't block as these will effect all `Channel` s that are served by the same `Thread`.
+
+
+TIP: ChannelPipeline allows to add `ChannelHandler` that are exected on different Thread to free up IO Thread (`EventLoop`).
+
+[source,java]
+----
+Channel ch = ...;
+ChannelPipeline p = ch.pipeline();
+EventExecutor e1 = new DefaultEventExecutor(16);
+
+p.addLast(new MyProtocolCodec()); <1>
+p.addLast(e1, new MyDatabaseAccessingHandler()); <2>
+----
+<1> Executed in `EventLoop` (and so the `Thread` bound to it)
+<2> Executed in one of the `EventExecutors` of e1
+
+[.topic.source]
+== Built with GC pressure in mind
+
+NOTE: Use pooling / `ThreadLocal` s to prevent GC pressure
+
+NOTE: Prefer direct method invocation over fire event object
+
+
+image::gc_pressure.jpg[width=250, align="center"]
+....
+http://25.media.tumblr.com/tumblr_me2eq0PnBx1rtu0cpo1_1280.jpg
+....
+
+NOTE: Reduces GC-Pressure a lot!
+
+[.topic.source]
+== __ByteBuf__ - ByteBuffer on steroids!
+
+NOTE: Separate index for reader/writer
+
+NOTE: Direct, Heap and Composite
+
+NOTE: Resizable with max capacity
+
+NOTE: Reference counting / pooling
+
+TIP: uses `sun.misc.Unsafe` for maximal performance
+
+[source,java]
+----
+ByteBuf buf = ...;
+buf.writeInt(1).writeBytes(data).writeBoolean(true)...
+----
+
+[.topic.source]
+== Allow parsing without expensive range-checks
+
+[source,java]
+.+SlowSearch for ByteBuf :(+
+----
+int index = -1;
+for (int i = buf.readerIndex(); index == -1 && i <  buf.writerIndex(); i++) {
+  if (buf.getByte(i) == '\n') {
+    index = i;
+  }
+}
+----
+
+[source,java]
+.+FastSearch for ByteBuf :)+
+----
+int index = buf.forEachByte(new ByteBufProcessor() {
+  @Override
+  public boolean process(byte value) {
+    return value != '\n';
+  }
+});
+----
+
+[.topic.source]
+== Use Pooling of buffers to reduce allocation / deallocation time!
+
+TIP: Pooling pays off for direct and heap buffers!
+
+image::pooled_buffers.png[width=400]
+....
+https://blog.twitter.com/2013/netty-4-at-twitter-reduced-gc-overhead
+....
+
+[.topic.source]
+== PooledByteBufAllocator - Algorithms / datastructures
+
+NOTE: Algorithm is a hybrid of jemalloc and buddy-allocation
+
+NOTE: `ThreadLocal` caches for lock-free allocation
+
+NOTE: Synchronization per area that holds different chunks of memory, when not be able to serve via cache
+
+
+[.topic.source]
+== PooledByteBufAllocator - without caches
+
+[source]
+.+Before caches were added+
+----
+[nmaurer@xxx]~% wrk/wrk  -H 'Host: localhost' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+     -H 'Connection: keep-alive' -d 120 -c 256 -t 16 --pipeline 256  http://xxx:8080/plaintext
+...
+Requests/sec: 2812559.99
+Transfer/sec:    388.93MB
+----
+image::allocator_no_cache.png[width=600]
+
+
+[.topic.source]
+== PooledByteBufAllocator - caches to the rescue!
+
+[source]
+.+With caches+
+----
+[nmaurer@xxx]~% wrk/wrk  -H 'Host: localhost' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+     -H 'Connection: keep-alive' -d 120 -c 256 -t 16 --pipeline 256  http://xxx:8080/plaintext
+...
+Requests/sec: 3022942.17
+Transfer/sec:    418.02MB
+----
+image::allocator_cache.png[width=600]
+
+[.topic.source]
+== Leak detection built-in
+
+[source]
+.+simple leak reporting+
+----
+LEAK: ByteBuf.release() was not called before it's garbage-collected....
+----
+
+[source]
+.+advanced leak reporting+
+----
+LEAK: ByteBuf.release() was not called before it's garbage-collected.
+Recent access records: 1
+#1:
+    io.netty.buffer.AdvancedLeakAwareByteBuf.toString(AdvancedLeakAwareByteBuf.java:697)
+    ...
+Created at:
+    ...
+    io.netty.handler.codec.xml.XmlFrameDecoderTest.testDecodeWithXml(XmlFrameDecoderTest.java:147)
+----
+
+[.topic.source]
+== Native stuff in Netty 4
+
+TIP: OpenSSL based SslEngine to reduce memory usage and latency.
+
+TIP: Native transport for linux using __epoll ET__ for more performance and less CPU usage.
+
+TIP: Native transport also supports __SO_REUSEPORT__ and __TCP_CORK__ :)
+
+
+image::200px-Tux.svg.png[width=100]
+
+[.topic.source]
+== Switching to native transport is easy
+
+[source,java]
+.+Using NIO transport+
+----
+Bootstrap bootstrap = new Bootstrap().group(new NioEventLoopGroup());
+bootstrap.channel(NioSocketChannel.class);
+----
+
+[source,java]
+.+Using native transport+
+----
+Bootstrap bootstrap = new Bootstrap().group(new EpollEventLoopGroup());
+bootstrap.channel(EpollSocketChannel.class);
+----
+
+
+[.topic.source]
+== __Things to come__
+
+NOTE: Dynamic `Channel` re-register (based on metrics)  - GSOC
+
+NOTE: `ForkJoinPool` based `EventLoop` - GSOC
+
+NOTE: Metrics
+
+image::future.jpg[width=200]
+....
+https://www.flickr.com/photos/mrpinkeyes/5140672916/
+....
+
+[.topic.source]
+== It's OpenSource
+
+image::opensource.jpg[width=735]
+....
+https://www.flickr.com/photos/opensourceway/5751540267
+....
+
+
+[.topic.source]
+== Vibrant community!
+
+image::pulse.png[width=700]
+
+[.topic.source]
+== Companies using _Netty_!
+
+image::companies.png[width=600]
+
+TIP: ... and many more ...
+
+[.topic.source]
+== (Opensource) Projects using _Netty_!
+
+image::projects.png[width=400]
+
+TIP: ... and many more ...
+
+[.topic.source]
+== __Get Involved__ - We love contributions
+image::netty_logo.png[width=200]
+
+NOTE: Mailinglist - https://groups.google.com/forum/#!forum/netty
+
+NOTE: IRC - #netty irc.freenode.org
+
+NOTE: Website - http://netty.io
+
+NOTE: Source / issue tracker - https://github.com/netty/netty/
+
+[.topic.source]
+== Want to know more?
+
+TIP: Buy my book http://www.manning.com/maurer/[Netty in Action] and make me __RICH__.
+
+image::maurer_cover150.jpg[width=100]
+....
+http://www.manning.com/maurer
+....
+
+__$ KA-CHING $__
+[.topic.source]
+== References
+
+NOTE: Netty - http://netty.io
+
+NOTE: Slides generated with Asciidoctor and DZSlides backend
+
+NOTE: Original slide template - Dan Allen & Sarah White
+
+NOTE: All pictures licensed with `Creative Commons Attribution` or +
+`Creative Commons Attribution-Share Alike`
+
+[.topic.ending, hrole="name"]
+== Norman Maurer
+
+[.footer]
+[icon-twitter]'{zwsp}' @normanmaurer

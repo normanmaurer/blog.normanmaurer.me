@@ -1,0 +1,132 @@
+<!DOCTYPE html><html lang="en" class="aspect-16-9"><head><meta charset="UTF-8"><meta name="generator" content="Asciidoctor 0.1.4, dzslides backend"><title>Netty 4 - A look behind the scenes</title><meta name="author" content="@EclipseCon NA 2014"><link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton:400,700,800,400italic|Cedarville+Cursive"><link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css"><link rel="stylesheet" href="./dzslides/themes/highlight/asciidoctor.css"><link rel="stylesheet" href="./dzslides/themes/style/asciidoctor.css"><style>section:not(.topic) > h2 { display: none;}</style><link rel="stylesheet" href="./dzslides/core/dzslides.css"><link rel="stylesheet" href="./dzslides/themes/transition/fade.css"></head><body><section class="title"><h1><em>Netty 4</em> - A look behind the scenes</h1><footer><span class="author">@EclipseCon NA 2014</span><span class="divider">&nbsp;&middot;&nbsp;</span><span class="author">San Francisco</span><span class="divider">&nbsp;&middot;&nbsp;</span><span class="author">2014/03/18</span></footer></section><section class="topic source"><h2>Norman Maurer, Principal Software Engineer @ Red Hat Inc</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-user">&#8203;</em> <em>&#8203;</em> <em>Netty</em> / Vert.x / All things NIO</li><li><em class="icon-user">&#8203;</em> <em>&#8203;</em> Author of <em>Netty in Action</em></li><li><em class="icon-twitter">&#8203;</em> @normanmaurer</li><li><em class="icon-github">&#8203;</em> github.com/normanmaurer</li></ul></div></div></section>
+<section class="topic source"><h2>Agenda</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Introducing Netty</li><li><em class="icon-note">&#8203;</em> Vert.x case-study</li></ul></div></div></section>
+<section class="topic source"><h2>What is <em>Netty</em>?</h2><blockquote><p>Netty is a NIO client server framework which enable quick and easy development of network applications such as protocol servers and clients&#8230;</p><br><cite>Netty Website</cite></blockquote></section>
+<section class="topic source"><h2>Features <em>Netty</em> comes with&#8230;</h2><img src="images/components.png" alt="components"></section>
+<section class="topic source"><h2>Asynchronous and non blocking by nature</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> I/O Operations don&#8217;t block at all!</li><li><em class="icon-note">&#8203;</em> Notified later</li><li><em class="icon-note">&#8203;</em> Share one Thread</li></ul></div></div>
+<blockquote><p>Don&#8217;t call us, we&#8217;ll call you.</p><br><cite>Hollywood principle</cite></blockquote></section>
+<section class="topic source"><h2>But why non-blocking at all ?</h2><div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">Usually a Thread takes memory from 256kb to 1mb for the stack space! Also a lot of wasted resources&#8230;</td></tr></table></div>
+<img src="images/ouch.jpg" alt="ouch" width="250">
+<div class="literalblock"><pre class="literal">hhttp://www.flickr.com/photos/bibi/5204647994/</pre></div></section>
+<section class="topic source"><h2><em>Asynchronous</em> in Action</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">Channel channel = ...
+ChannelFuture cf = channel.writeAndFlush(data); <i class="conum" data-value="1"></i><b>(1)</b>
+cf.addListener(new ChannelFutureListener() {    <i class="conum" data-value="2"></i><b>(2)</b>
+  @Override
+  public void operationComplete(ChannelFuture future) {
+    if(!future.isSuccess() {
+        future.cause().printStacktrace();
+    } else { ... }
+  }
+});</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td><em>Write</em> to the <code>Channel</code> and <em>flush</em></td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>Add <code>ChannelFutureListener</code> to be notified once operations completes</td></tr></table></div></section>
+<section class="topic source"><h2><em>ByteBuf</em> - ByteBuffer on steroids!</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Separate index for reader/writer</li><li><em class="icon-note">&#8203;</em> Direct, Heap and Composite</li><li><em class="icon-note">&#8203;</em> Resizable with max capacity</li><li><em class="icon-note">&#8203;</em> Reference counting</li></ul></div></div>
+<div class="listingblock"><pre class="highlight CodeRay"><code class="java">ByteBuf buf = ...;
+buf.writeInt(1).writeBytes(data).writeBoolean(true)...</code></pre></div></section>
+<section class="topic source"><h2>ByteBuf pooling to reduce allocation / deallocation time!</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Pooling pays off for direct and heap buffers!</td></tr></table></div>
+<img src="images/pooled_buffers.png" alt="pooled buffers" width="400">
+<div class="literalblock"><pre class="literal">https://blog.twitter.com/2013/netty-4-at-twitter-reduced-gc-overhead</pre></div></section>
+<section class="topic source"><h2>ChannelHandlers - Where your handling logic lifes</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Inbound and Outbound</li><li><em class="icon-note">&#8203;</em> Called by the EventExecutor</li></ul></div></div>
+<img src="images/channel_handlers.png" alt="channel handlers" width="400"></section>
+<section class="topic source"><h2><em>ChannelHandler</em> in Action</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">@Sharable
+public class EchoHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, Object msg) { <i class="conum" data-value="1"></i><b>(1)</b>
+    ctx.writeAndFlush(msg);
+  }
+
+  @Override
+  public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) { <i class="conum" data-value="2"></i><b>(2)</b>
+    cause.printStacktrace();
+    ctx.close();
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Intercept received message and write it back to the remote peer</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>React on <code>Throwable</code> and close the connection</td></tr></table></div></section>
+<section class="topic source"><h2><em>ChannelPipeline</em> - Chain <em>ChannelHandlers</em></h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-note">&#8203;</em> Holds ChannelHandlers</li><li><em class="icon-note">&#8203;</em> Per Channel</li><li><em class="icon-note">&#8203;</em> Events pass through</li></ul></div></div>
+<div class="listingblock"><div class="title"><code>Kind of a unix-pipe-like thing&#8230;</code></div><pre class="highlight CodeRay"><code class="sh">$ echo "Netty is shit...." | sed -e 's/is /is the /'
+                    Netty is the shit....
+</code></pre></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">You see, everything is adjustable!</td></tr></table></div></section>
+<section class="topic source"><h2><em>EventLoop</em> - Someone needs to do the heavy work</h2><ul><li><em class="icon-note">&#8203;</em> Powers 0-n Channels</li><li><em class="icon-note">&#8203;</em> Bound to 1 Thread</li></ul>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">No need to worry about synchronization</td></tr></table></div>
+<img src="images/thumb_up_2.jpg" alt="thumb up 2" width="180">
+<div class="literalblock"><pre class="literal">http://www.flickr.com/photos/za3tooor/65911648/</pre></div></section>
+<section class="topic source"><h2><em>EventLoop</em> - All the ScheduleExecutorService goodies for free!</h2><img src="images/eventexecutor.png" alt="eventexecutor">
+<div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class WriteTimeOutHandler extends ChannelOutboundHandlerAdapter {
+  @Override
+  public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+    ctx.write(msg, promise);
+
+    if (!promise.isDone() {
+      ctx.executor().schedule(new WriteTimeoutTask(promise), 30, TimeUnit.SECONDS); <i class="conum" data-value="1"></i><b>(1)</b>
+    }
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Schedule task for in 30 seconds</td></tr></table></div></section>
+<section class="topic source"><h2>Using Netty in your next application / framework!</h2><img src="images/vertx.jpg" alt="vertx" width="400">
+<div class="literalblock"><pre class="literal">A case study for using Netty based on Vert.x!</pre></div></section>
+<section class="topic source"><h2>Often you need to expose callbacks to your users, but these not always match.</h2><div class="listingblock"><div class="title"><code>Used in Vert.x as callback for outbound operations</code></div><pre class="highlight CodeRay"><code class="java">public interface Handler&lt;E&gt; {
+  void handle(E event);
+}</code></pre></div>
+<div class="listingblock"><div class="title"><code>Used in Netty as callback for outbound operations.</code></div><pre class="highlight CodeRay"><code class="java">public interface ChannelFutureListener {
+  void operationComplete(ChannelFuture future) throws Exception;
+}
+
+public interface ChannelOutboundHandler extends ChannelHandler {
+  void write(ChannelHandlerContext ctx, Object msg,
+      ChannelPromise promise) throws Exception;
+  ...
+}</code></pre></div></section>
+<section class="topic source"><h2>Create adapter classes for Outbound operations.</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class HandlerAdapter&lt;AsyncResult&lt;T&gt;&gt; implements ChannelFutureListener {
+  public HandlerAdapter(Handler&lt;AsyncResult&lt;T&gt;&gt; handler, T okResult) { ... }
+  @Override
+  public void operationComplete(ChannelFuture future) {
+    if (future.isSuccess()) {
+      handler.handle(new DefaultFutureResult&lt;T&gt;(okResult));
+    } else {
+      handler.handle(new DefaultFutureResult&lt;T&gt;(future.cause()));
+    }
+  }
+}
+public DefaultNetSocket implements NetSocket {
+  @Override
+  public void sendFile(String name, Handler&lt;AsyncResult&lt;NetSocket&gt; callback) {
+    channel.writeAndFlush(createFileRegion(name)).addListener(
+        new HandlerAdapter(callback, this));
+  }
+}</code></pre></div></section>
+<section class="topic source"><h2>Notifications</h2><div class="listingblock"><div class="title"><code>Used in Vert.x as callback for inbound events</code></div><pre class="highlight CodeRay"><code class="java">public interface Handler&lt;E&gt; {
+  void handle(E event);
+}</code></pre></div>
+<div class="listingblock"><div class="title"><code>Used in Netty as callback for inbound events.</code></div><pre class="highlight CodeRay"><code class="java">public interface ChannelInboundHandler extends ChannelHandler {
+  void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception;
+
+  void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception;
+  ...</code></pre></div></section>
+<section class="topic source"><h2>Create adapter classes for inbound events.</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class InboundHandlerAdapter&lt;T&gt; extends ChannelInboundHandlerAdapter {
+  public InboundHandlerAdapter(Handler&lt;T&gt; dataHandler,
+      Handler&lt;Throwable&gt; exceptionHandler) { ... }
+
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, Object msg) {
+    handler.handle((T) msg);
+  }
+
+  @Override
+  public void exceptionCaught(ChannelHandlerCtx ctx, Throwable cause) {
+    exceptionHandler.handle(cause);
+  }
+}
+</code></pre></div></section>
+<section class="topic source"><h2>Companies using <em>Netty</em>!</h2><img src="images/companies.png" alt="companies" width="400">
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">&#8230; and many more &#8230;</td></tr></table></div></section>
+<section class="topic source"><h2>We love Contributions!</h2><img src="images/empire_wants_you_2.jpg" alt="empire wants you 2" width="250">
+<div class="literalblock"><pre class="literal">http://www.flickr.com/photos/legofenris/4499417549/</pre></div></section>
+<section class="topic source"><h2>Want to know more?</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Buy my book <a href="http://www.manning.com/maurer/">Netty in Action</a> and make me <em>RICH</em>.</td></tr></table></div>
+<img src="images/maurer_cover150.jpg" alt="maurer cover150" width="100">
+<div class="literalblock"><pre class="literal">http://www.manning.com/maurer</pre></div>
+<p><em>$ KA-CHING $</em></p></section>
+<section class="topic source"><h2>References</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Netty - <a href="http://netty.io">http://netty.io</a></td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Slides generated with Asciidoctor and DZSlides backend</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Original slide template - Dan Allen &amp; Sarah White</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">All pictures licensed with <code>Creative Commons Attribution</code> or<br>
+<code>Creative Commons Attribution-Share Alike</code></td></tr></table></div></section>
+<section class="topic ending"><h2 class="name">Norman Maurer</h2><p class="footer"><em class="icon-twitter">&#8203;</em> @normanmaurer</p></section><script src="./dzslides/core/dzslides.js"></script><script src="./dzslides/highlight/highlight.pack.js"></script><script>hljs.initHighlightingOnLoad()</script></body></html>
