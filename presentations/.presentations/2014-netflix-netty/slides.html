@@ -1,0 +1,229 @@
+<!DOCTYPE html><html lang="en" class="aspect-16-9"><head><meta charset="UTF-8"><meta name="generator" content="Asciidoctor 0.1.4, dzslides backend"><title>Why Netty ?</title><meta name="author" content="@Netflix 2014"><link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton:400,700,800,400italic|Cedarville+Cursive"><link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css"><link rel="stylesheet" href="./dzslides/themes/highlight/asciidoctor.css"><link rel="stylesheet" href="./dzslides/themes/style/asciidoctor.css"><style>section:not(.topic) > h2 { display: none;}</style><link rel="stylesheet" href="./dzslides/core/dzslides.css"><link rel="stylesheet" href="./dzslides/themes/transition/fade.css"></head><body><section class="title"><h1>Why <em>Netty</em> ?</h1><footer><span class="author">@Netflix 2014</span><span class="divider">&nbsp;&middot;&nbsp;</span><span class="author">Las Gatos</span><span class="divider">&nbsp;&middot;&nbsp;</span><span class="author">2014/07/29</span></footer></section><section class="topic source"><h2>Norman Maurer, Principal Software Engineer / Leading Netty efforts @ Red Hat Inc.</h2><div class="exampleblock"><div class="content"><ul><li><em class="icon-user">&#8203;</em> <em>Netty</em> / All things NIO</li><li><em class="icon-user">&#8203;</em> Author of <em>Netty in Action</em></li><li><em class="icon-twitter">&#8203;</em> @normanmaurer</li><li><em class="icon-github">&#8203;</em> github.com/normanmaurer</li></ul></div></div></section>
+<section class="topic source"><h2>Netty - The non-blocking network framework</h2><blockquote><p>Because writing fast, non-blocking network code is non-trivial.</p><br><cite>Why Netty ?</cite></blockquote></section>
+<section class="topic source"><h2>When I say fast, I mean fast</h2><img src="images/techempower.png" alt="techempower" width="700">
+<div class="literalblock"><pre class="literal">http://www.techempower.com/benchmarks/#section=data-r9&amp;hw=i7&amp;test=plaintext</pre></div>
+<div class="listingblock"><div class="title"><code>Response</code></div><pre class="highlight CodeRay"><code class="no-highlight">HTTP/1.1 200 OK
+Content-Length: 15
+Content-Type: text/plain; charset=UTF-8
+Server: Example
+Date: Wed, 17 Apr 2013 12:00:00 GMT
+
+Hello, World!</code></pre></div></section>
+<section class="topic source"><h2>Even more speed in upcoming release</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">256 concurrent connections</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">256 requests pipelined</td></tr></table></div>
+<div class="listingblock"><div class="title"><code>24 cores</code></div><pre class="highlight CodeRay"><code class="no-highlight">[nmaurer@xxx]~% wrk/wrk -H 'Host: localhost' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Connection: keep-alive' -d 120 -c 256 -t 16 --pipeline 256  http://xxx:8080/plaintext
+Running 2m test @ http://xxx:8080/plaintext
+  16 threads and 256 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    18.77ms   16.68ms 452.00ms   92.67%
+    Req/Sec   225.82k    41.95k  376.21k    67.34%
+  429966998 requests in 2.00m, 57.66GB read
+Requests/sec: 3583411.40
+Transfer/sec:    492.11MB</code></pre></div></section>
+<section class="topic source"><h2>But&#8230;.. WHY?</h2><img src="images/homer.jpg" alt="homer" width="735">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/owyzzz/4934057731/</pre></div></section>
+<section class="topic source"><h2>Fully asynchronous</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Asychronous from the ground up</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Using java.nio or native method calls for non-blocking io</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Futures and callbacks provided for easy composing</td></tr></table></div>
+<blockquote><p>Don&#8217;t call us, we&#8217;ll call you.</p><br><cite>Hollywood principle</cite></blockquote></section>
+<section class="topic source"><h2>Hide complexity but not flexibility</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Hides all the complexity involved when you use <code>java.nio</code> or <code>java.nio2</code></td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Still powers you with a lot of flexibility</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Unified API for every transport</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Allows easy testing of your custom code.</td></tr></table></div></section>
+<section class="topic source"><h2>Protocol agnostic &#8594; Not just another HTTP server</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Supports <code>TCP</code>, <code>UDP</code>, <code>UDT</code>, <code>SCTP</code> out of the box</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Contains codecs for different protocols on top of these</td></tr></table></div></section>
+<section class="topic source"><h2>Supported Codecs</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">HTTP, WebSockets ( + compression) , SPDY, HTTP 2</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">SSL/TLS, Zlib, Deflate</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Protobufs, JBoss Marshalling, Java Serialization</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">DNS</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Memcached, Stomp, Proxy, MQTT</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">&#8230;add your prefered protocol here&#8230;</td></tr></table></div></section>
+<section class="topic source"><h2>Thread-Model - Easy but powerful</h2><img src="images/eventloop_diagram.jpg" alt="eventloop diagram" width="400">
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Having inbound and outbound events handled by the same Thread simplifies concurrency handling a lot!</td></tr></table></div></section>
+<section class="topic source"><h2>Simple state model</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Allows to react on each state change by intercept the states via <code>ChannelHandler</code>.</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Allows flexible handling depending on the needs.</td></tr></table></div>
+<img src="images/state.png" alt="state" width="400"></section>
+<section class="topic source"><h2><em>ChannelPipeline</em></h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Interceptor pattern</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Allows to add building-blocks (<code>ChannelHandler</code>) on-the-fly that transform data or react on events</td></tr></table></div>
+<div class="listingblock"><div class="title"><code>Kind of a unix-pipe-like thing&#8230;</code></div><pre class="highlight CodeRay"><code class="sh">$ echo "Netty is shit...." | sed -e 's/is /is the /' | cat <i class="conum" data-value="1"></i><b>(1)</b>
+                    Netty is the shit....
+</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Think of the whole line to be the <code>ChannelPipeline</code> and <code>echo</code>, <code>sed</code> and <code>cat</code> the <code>ChannelHandler</code> s that allow to transform data.</td></tr></table></div></section>
+<section class="topic source"><h2><em>ChannelPipeline</em> - How does it work</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Inbound and outbound events flow through the <code>ChannelHandler</code> s in the <code>ChannelPipeline</code> and so allow to react one these events.</td></tr></table></div>
+<img src="images/channel_pipeline.png" alt="channel pipeline" width="600"></section>
+<section class="topic source"><h2><em>ChannelPipeline</em> - Compose processing logic</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Compose complex processing logic via multiple <code>ChannelHandler</code>.</td></tr></table></div>
+<div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class MyChannelInitializer extends ChannelInitializer&lt;Channel&gt; {
+  @Override
+  public void initChannel(Channel ch) {
+    ChannelPipeline p = ch.pipeline();
+    p.addLast(new SslHandler(...)); <i class="conum" data-value="1"></i><b>(1)</b>
+    p.addLast(new HttpServerCodec(...)); <i class="conum" data-value="2"></i><b>(2)</b>
+    p.addLast(new YourRequestHandler()); <i class="conum" data-value="3"></i><b>(3)</b>
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Encrypt traffic</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>Support HTTP</td></tr><tr><td><i class="conum" data-value="3"></i><b>3</b></td><td>Your handler that receive the HTTP requests.</td></tr></table></div></section>
+<section class="topic source"><h2><em>ChannelHandler</em> - React on received data</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">@Sharable
+public class EchoHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, Object msg) { <i class="conum" data-value="1"></i><b>(1)</b>
+    ctx.writeAndFlush(msg);
+  }
+
+  @Override
+  public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) { <i class="conum" data-value="2"></i><b>(2)</b>
+    cause.printStacktrace();
+    ctx.close();
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Intercept received message and write it back to the remote peer</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>React on <code>Throwable</code> and close the connection</td></tr></table></div></section>
+<section class="topic source"><h2><em>Decoder / Encoder</em> - Transform data via ChannelHandler</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Different abstract base classes for Decoder and Encoder</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Handles buffering for you if needed (remember everything is non-blocking!)</td></tr></table></div></section>
+<section class="topic source"><h2><em>Decoder / Encoder</em> - Transform data via ChannelHandler</h2><div class="listingblock"><div class="title"><code>Transform received ByteBuf to String</code></div><pre class="highlight CodeRay"><code class="java">public class StringDecoder extends MessageToMessageDecoder&lt;ByteBuf&gt; {
+  @Override
+  protected void decode(ChannelHandlerContext ctx, ByteBuf msg, List&lt;Object&gt; out) {
+      out.add(msg.toString(charset));
+  }
+}</code></pre></div>
+<div class="listingblock"><div class="title"><code>Transform to be send String to ByteBuf</code></div><pre class="highlight CodeRay"><code class="java">public class StringEncoder extends MessageToMessageEncoder&lt;String&gt; {
+    @Override
+    protected void encode(ChannelHandlerContext ctx, String msg, List&lt;Object&gt; out) {
+        if (msg.length() == 0) return;
+        out.add(ByteBufUtil.encodeString(ctx.alloc(), CharBuffer.wrap(msg), charset));
+    }
+}</code></pre></div></section>
+<section class="topic source"><h2>Adding other processing logic?</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Adding more processing logic is often a matter of adding <em>just-another</em> <code>ChannelHandler</code> to the <code>ChannelPipeline</code>.</td></tr></table></div>
+<p><span class="image"><img src="images/win.jpg" alt="win" width="300"></span></p>
+<div class="literalblock"><pre class="literal">http://memegenerator.net/instance/43005548</pre></div></section>
+<section class="topic source"><h2>Writing protocol multiplexers is a no-brainer!</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class PortUnificationServerHandler extends ByteToMessageDecoder {
+  @Override
+  protected void decode(ChannelHandlerContext ctx, ByteBuf in, List&lt;Object&gt; out) {
+    if (in.readableBytes() &lt; 5) return <i class="conum" data-value="1"></i><b>(1)</b>
+    if (isSsl(in)) { <i class="conum" data-value="2"></i><b>(2)</b>
+      ctx.pipeline().addLast("ssl", sslCtx.newHandler(ctx.alloc()));
+      ctx.pipeline().remove(this);
+    } else if (isGzip(in)) { ...
+    } else { <i class="conum" data-value="3"></i><b>(3)</b>
+      ctx.close();
+    }
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Will use the first five bytes to detect a protocol.</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>Check if SSL is used and if so add <code>SslHandler</code> to the <code>ChannelPipeline</code>.</td></tr><tr><td><i class="conum" data-value="3"></i><b>3</b></td><td>Unknown protocol, just close the connection</td></tr></table></div></section>
+<section class="topic source"><h2>Flexible write behaviour</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content"><code>Channel.write(...)</code> &#8658; write through the <code>ChannelPipeline</code> but <em>NOT</em> trigger syscall like <code>write</code> or <code>writev</code>.</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content"><code>Channel.flush()</code> &#8658; writes all pending data to the socket.</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Gives more flexibility for when things are written and also allows efficient pipelining.</td></tr></table></div></section>
+<section class="topic source"><h2>Easy HTTP Pipelining to safe syscalls by using write(&#8230;) and flush()!</h2><div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class HttpPipeliningHandler extends SimpleChannelInboundHandler&lt;HttpRequest&gt; {
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, HttpRequest req) {
+    ChannelFuture future = ctx.writeAnd(createResponse(req)); <i class="conum" data-value="1"></i><b>(1)</b>
+    if (!HttpHeaders.isKeepAlive(req)) {
+      future.addListener(ChannelFutureListener.CLOSE); <i class="conum" data-value="2"></i><b>(2)</b>
+    }
+  }
+  @Override
+  public void channelReadComplete(ChannelHandlerContext ctx) {
+    ctx.flush(); <i class="conum" data-value="3"></i><b>(3)</b>
+  }
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td><em>Write</em> to the <code>Channel</code> (<em>No syscall!</em>) but not flush yet</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>After written <em>close</em> socket</td></tr><tr><td><i class="conum" data-value="3"></i><b>3</b></td><td><em>Flush</em> out to the socket once everything was ready from the `Channel</td></tr></table></div></section>
+<section class="topic source"><h2>Allow to detect slow remote peers</h2><p><span class="image"><img src="images/speed_limit.jpg" alt="speed_limit" width="250"></span></p>
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/kwl/4514986410</pre></div>
+<div class="listingblock"><pre class="highlight CodeRay"><code class="java">public class StateHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelWritabilityChanged(ChannelHandlerContext ctx) { } <i class="conum" data-value="1"></i><b>(1)</b>
+}</code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Is triggered once <code>Channel.isWritable()</code> changes.</td></tr></table></div></section>
+<section class="topic source"><h2>Execute ChannelHandler outside of EventLoop</h2><div class="admonitionblock warning"><table><tr><td class="icon"><i class="icon-warning" title="Warning"></i></td><td class="content">Don&#8217;t block as these will effect all <code>Channel</code> s that are served by the same <code>Thread</code>.</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">ChannelPipeline allows to add <code>ChannelHandler</code> that are exected on different Thread to free up IO Thread (<code>EventLoop</code>).</td></tr></table></div>
+<div class="listingblock"><pre class="highlight CodeRay"><code class="java">Channel ch = ...;
+ChannelPipeline p = ch.pipeline();
+EventExecutor e1 = new DefaultEventExecutor(16);
+
+p.addLast(new MyProtocolCodec()); <i class="conum" data-value="1"></i><b>(1)</b>
+p.addLast(e1, new MyDatabaseAccessingHandler()); <i class="conum" data-value="2"></i><b>(2)</b></code></pre></div>
+<div class="colist arabic"><table><tr><td><i class="conum" data-value="1"></i><b>1</b></td><td>Executed in <code>EventLoop</code> (and so the <code>Thread</code> bound to it)</td></tr><tr><td><i class="conum" data-value="2"></i><b>2</b></td><td>Executed in one of the <code>EventExecutors</code> of e1</td></tr></table></div></section>
+<section class="topic source"><h2>Built with GC pressure in mind</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Use pooling / <code>ThreadLocal</code> s to prevent GC pressure</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Prefer direct method invocation over fire event object</td></tr></table></div>
+<img src="images/gc_pressure.jpg" alt="gc pressure" width="250">
+<div class="literalblock"><pre class="literal">http://25.media.tumblr.com/tumblr_me2eq0PnBx1rtu0cpo1_1280.jpg</pre></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Reduces GC-Pressure a lot!</td></tr></table></div></section>
+<section class="topic source"><h2><em>ByteBuf</em> - ByteBuffer on steroids!</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Separate index for reader/writer</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Direct, Heap and Composite</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Resizable with max capacity</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Reference counting / pooling</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">uses <code>sun.misc.Unsafe</code> for maximal performance</td></tr></table></div>
+<div class="listingblock"><pre class="highlight CodeRay"><code class="java">ByteBuf buf = ...;
+buf.writeInt(1).writeBytes(data).writeBoolean(true)...</code></pre></div></section>
+<section class="topic source"><h2>Allow parsing without expensive range-checks</h2><div class="listingblock"><div class="title"><code>SlowSearch for ByteBuf :(</code></div><pre class="highlight CodeRay"><code class="java">int index = -1;
+for (int i = buf.readerIndex(); index == -1 &amp;&amp; i &lt;  buf.writerIndex(); i++) {
+  if (buf.getByte(i) == '\n') {
+    index = i;
+  }
+}</code></pre></div>
+<div class="listingblock"><div class="title"><code>FastSearch for ByteBuf :)</code></div><pre class="highlight CodeRay"><code class="java">int index = buf.forEachByte(new ByteBufProcessor() {
+  @Override
+  public boolean process(byte value) {
+    return value != '\n';
+  }
+});</code></pre></div></section>
+<section class="topic source"><h2>Use Pooling of buffers to reduce allocation / deallocation time!</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Pooling pays off for direct and heap buffers!</td></tr></table></div>
+<img src="images/pooled_buffers.png" alt="pooled buffers" width="400">
+<div class="literalblock"><pre class="literal">https://blog.twitter.com/2013/netty-4-at-twitter-reduced-gc-overhead</pre></div></section>
+<section class="topic source"><h2>PooledByteBufAllocator - Algorithms / datastructures</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Algorithm is a hybrid of jemalloc and buddy-allocation</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content"><code>ThreadLocal</code> caches for lock-free allocation</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Synchronization per area that holds different chunks of memory, when not be able to serve via cache</td></tr></table></div></section>
+<section class="topic source"><h2>PooledByteBufAllocator - without caches</h2><div class="listingblock"><div class="title"><code>Before caches were added</code></div><pre class="highlight CodeRay"><code class="no-highlight">[nmaurer@xxx]~% wrk/wrk  -H 'Host: localhost' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+     -H 'Connection: keep-alive' -d 120 -c 256 -t 16 --pipeline 256  http://xxx:8080/plaintext
+...
+Requests/sec: 2812559.99
+Transfer/sec:    388.93MB</code></pre></div>
+<img src="images/allocator_no_cache.png" alt="allocator no cache" width="600"></section>
+<section class="topic source"><h2>PooledByteBufAllocator - caches to the rescue!</h2><div class="listingblock"><div class="title"><code>With caches</code></div><pre class="highlight CodeRay"><code class="no-highlight">[nmaurer@xxx]~% wrk/wrk  -H 'Host: localhost' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+     -H 'Connection: keep-alive' -d 120 -c 256 -t 16 --pipeline 256  http://xxx:8080/plaintext
+...
+Requests/sec: 3022942.17
+Transfer/sec:    418.02MB</code></pre></div>
+<img src="images/allocator_cache.png" alt="allocator cache" width="600"></section>
+<section class="topic source"><h2>Leak detection built-in</h2><div class="listingblock"><div class="title"><code>simple leak reporting</code></div><pre class="highlight CodeRay"><code class="no-highlight">LEAK: ByteBuf.release() was not called before it's garbage-collected....</code></pre></div>
+<div class="listingblock"><div class="title"><code>advanced leak reporting</code></div><pre class="highlight CodeRay"><code class="no-highlight">LEAK: ByteBuf.release() was not called before it's garbage-collected.
+Recent access records: 1
+#1:
+    io.netty.buffer.AdvancedLeakAwareByteBuf.toString(AdvancedLeakAwareByteBuf.java:697)
+    ...
+Created at:
+    ...
+    io.netty.handler.codec.xml.XmlFrameDecoderTest.testDecodeWithXml(XmlFrameDecoderTest.java:147)</code></pre></div></section>
+<section class="topic source"><h2>Native stuff in Netty 4</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">OpenSSL based SslEngine to reduce memory usage and latency.</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Native transport for linux using <em>epoll ET</em> for more performance and less CPU usage.</td></tr></table></div>
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Native transport also supports <em>SO_REUSEPORT</em> and <em>TCP_CORK</em> :)</td></tr></table></div>
+<img src="images/200px-Tux.svg.png" alt="200px Tux.svg" width="100"></section>
+<section class="topic source"><h2>Switching to native transport is easy</h2><div class="listingblock"><div class="title"><code>Using NIO transport</code></div><pre class="highlight CodeRay"><code class="java">Bootstrap bootstrap = new Bootstrap().group(new NioEventLoopGroup());
+bootstrap.channel(NioSocketChannel.class);</code></pre></div>
+<div class="listingblock"><div class="title"><code>Using native transport</code></div><pre class="highlight CodeRay"><code class="java">Bootstrap bootstrap = new Bootstrap().group(new EpollEventLoopGroup());
+bootstrap.channel(EpollSocketChannel.class);</code></pre></div></section>
+<section class="topic source"><h2><em>Things to come</em></h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Dynamic <code>Channel</code> re-register (based on metrics)  - GSOC</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content"><code>ForkJoinPool</code> based <code>EventLoop</code> - GSOC</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Metrics</td></tr></table></div>
+<img src="images/future.jpg" alt="future" width="200">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/mrpinkeyes/5140672916/</pre></div></section>
+<section class="topic source"><h2>It&#8217;s OpenSource</h2><img src="images/opensource.jpg" alt="opensource" width="735">
+<div class="literalblock"><pre class="literal">https://www.flickr.com/photos/opensourceway/5751540267</pre></div></section>
+<section class="topic source"><h2>Vibrant community!</h2><img src="images/pulse.png" alt="pulse" width="700"></section>
+<section class="topic source"><h2>Companies using <em>Netty</em>!</h2><img src="images/companies.png" alt="companies" width="600">
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">&#8230; and many more &#8230;</td></tr></table></div></section>
+<section class="topic source"><h2>(Opensource) Projects using <em>Netty</em>!</h2><img src="images/projects.png" alt="projects" width="400">
+<div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">&#8230; and many more &#8230;</td></tr></table></div></section>
+<section class="topic source"><h2><em>Get Involved</em> - We love contributions</h2><img src="images/netty_logo.png" alt="netty logo" width="200">
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Mailinglist - <a href="https://groups.google.com/forum/#!forum/netty">https://groups.google.com/forum/#!forum/netty</a></td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">IRC - #netty irc.freenode.org</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Website - <a href="http://netty.io">http://netty.io</a></td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Source / issue tracker - <a href="https://github.com/netty/netty/">https://github.com/netty/netty/</a></td></tr></table></div></section>
+<section class="topic source"><h2>Want to know more?</h2><div class="admonitionblock tip"><table><tr><td class="icon"><i class="icon-tip" title="Tip"></i></td><td class="content">Buy my book <a href="http://www.manning.com/maurer/">Netty in Action</a> and make me <em>RICH</em>.</td></tr></table></div>
+<img src="images/maurer_cover150.jpg" alt="maurer cover150" width="100">
+<div class="literalblock"><pre class="literal">http://www.manning.com/maurer</pre></div>
+<p><em>$ KA-CHING $</em></p></section>
+<section class="topic source"><h2>References</h2><div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Netty - <a href="http://netty.io">http://netty.io</a></td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Slides generated with Asciidoctor and DZSlides backend</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">Original slide template - Dan Allen &amp; Sarah White</td></tr></table></div>
+<div class="admonitionblock note"><table><tr><td class="icon"><i class="icon-note" title="Note"></i></td><td class="content">All pictures licensed with <code>Creative Commons Attribution</code> or<br>
+<code>Creative Commons Attribution-Share Alike</code></td></tr></table></div></section>
+<section class="topic ending"><h2 class="name">Norman Maurer</h2><p class="footer"><em class="icon-twitter">&#8203;</em> @normanmaurer</p></section><script src="./dzslides/core/dzslides.js"></script><script src="./dzslides/highlight/highlight.pack.js"></script><script>hljs.initHighlightingOnLoad()</script></body></html>

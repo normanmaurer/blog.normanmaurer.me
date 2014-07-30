@@ -69,15 +69,18 @@
             </div>
           </header>
           <div class="content">
+            
             <p>Today it's time to make you aware of the performance penalty you may pay when using <code>Throwable</code>, <code>Error</code>, <code>Exception</code> and as a result give you a better idea how to avoid it. You may never have thought about it, but using those in a wrong fashion can affect the performance of your applications to a large degree.</p>
             
             <p>Alright, let us start from scratch. You may have heard that you should only use <code>Exception</code> / <code>Throwable</code> / <code>Error</code> for exceptional situations (something that is not the norm and signals unexpected behaviour). This is actually a good advice, but even if you follow it (which I really hope you do) there may be situations where you need to throw one.</p>
             
             <p>Throwing a <code>Throwable</code> (or one of it's subtypes) is not a big deal. Well it's not for free, but still not the main cause for peformance issues. The real issue comes up when you create the object itself.</p>
             
-            <blockquote><p>Huh?</p></blockquote>
+            <blockquote>
+              <p>Huh?</p>
+            </blockquote>
             
-            <p>So why is creating a <code>Throwable</code> so expensive? Isn't it just a simple light-weight POJO? Simple yes, but certainly not light-weight!</p>
+            <p>So why is creating a <code>Throwable</code> so expensive? Isn't it just a simple light-weight POJO? Simple yes, but certainly not light-weight! </p>
             
             <p>It's because usally it will call <code>Throwable.fillInStackTrace()</code>, which needs to look down the stack and put it in the newly created <code>Throwable</code>. This can affect the performance of your application to a large degree if you create a lot of them.</p>
             
@@ -85,37 +88,32 @@
             
             <p>There are a few techniques you can use to improve the performance. Let's have a deeper look into them now.</p>
             
-            <h2>Lazy create a Throwable and reuse</h2>
+            <h2 id="lazy-create-a-throwable-and-reuse">Lazy create a Throwable and reuse</h2>
+            <p>There are some situations where you would like to use the same <code>Throwable</code> multiple times. In this case you can lazily create and then reuse it. This way you eliminate a lot of the initial overhead. </p>
             
-            <p>There are some situations where you would like to use the same <code>Throwable</code> multiple times. In this case you can lazily create and then reuse it. This way you eliminate a lot of the initial overhead.</p>
-            
-            <p>To make things more clear let's have a look at some real-world example. In this example we assume that we have a list of pending writes which are all failed because the underlying <code>Channel</code> was closed.</p>
+            <p>To make things more clear let's have a look at some real-world example. In this example we assume that we have a list of pending writes which are all failed because the underlying <code>Channel</code> was closed. </p>
             
             <p>The pending writes are represented by the <code>PendingWrite</code> interface as shown below.</p>
             
             <pre class="syntax java"> &#x000A;public interface PendingWrite {&#x000A;    void setSuccess();&#x000A;    void setFailure(Throwable cause);&#x000A;}</pre>
             
-            
             <p>We have a <code>Writer</code> class which will need to fail all <code>PendingWrite</code> instances with a <code>ClosedChannelException</code>. You may be tempted to implement it like this:</p>
             
             <pre class="syntax java">  &#x000A;public class Writer {&#x000A;       &#x000A;    ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        for (PendingWrite write: writes) {&#x000A;            write.setFailure(new ClosedChannelException());&#x000A;        }    &#x000A;    }&#x000A;}</pre>
             
-            
             <p>This works, but if this method is called often and with a not to small array of <code>PendingWrite</code>s you are in serious trouble. It will need to fill in the stacktrace for every <code>PendingWrite</code> you are about to fail!</p>
             
-            <p>This is not only very wasteful but also something that is easy to optimize, so let's bring it on...</p>
+            <p>This is not only very wasteful but also something that is easy to optimize, so let's bring it on…</p>
             
-            <p>The key is to lazy create the <code>ClosedChannelException</code> and reuse it for each <code>PendingWrite</code> that needs to get failed. And doing so will even result in the correct stacktrace to be filled in... <strong>JackPot!</strong></p>
+            <p>The key is to lazy create the <code>ClosedChannelException</code> and reuse it for each <code>PendingWrite</code> that needs to get failed. And doing so will even result in the correct stacktrace to be filled in… <strong>JackPot!</strong></p>
             
             <p>So fixing this is as easy as rewriting the <code>failPendingWrites(...)</code> method as shown here:</p>
             
             <pre class="syntax java">&#x000A;public class Writer {&#x000A;    ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        if (writes.length == 0) {&#x000A;            return;&#x000A;        }&#x000A;        ClosedChannelException error = new ClosedChannelException();&#x000A;        for (PendingWrite write: writes) {&#x000A;            write.setFailure(error);&#x000A;        }&#x000A;    }&#x000A;}</pre>
             
+            <p>Notice we lazily create the <code>ClosedChannelException</code> only if needed (if we have something to fail) and reuse the same instance for all the <code>PendingWrite</code>s in the array. This will dramatically cut down the overhead, but you can reduce it even more with some tradeoff which I will explain next…</p>
             
-            <p>Notice we lazily create the <code>ClosedChannelException</code> only if needed (if we have something to fail) and reuse the same instance for all the <code>PendingWrite</code>s in the array. This will dramatically cut down the overhead, but you can reduce it even more with some tradeoff which I will explain next...</p>
-            
-            <h2>Use static Throwable with no stacktrace at all</h2>
-            
+            <h2 id="use-static-throwable-with-no-stacktrace-at-all">Use static Throwable with no stacktrace at all</h2>
             <p>Sometimes you may not need a stacktrace at all as the <code>Throwable</code> itself is enough information for what's going on. In this case, you are able to just use a static <code>Throwable</code> and reuse it.</p>
             
             <p>What you should remember in this case is to set the stacktrace to an empty array to not have some "wrong" stacktrace show up, and so cause a lot of headache when debugging.</p>
@@ -124,19 +122,17 @@
             
             <pre class="syntax java">&#x000A;public class Writer {&#x000A;    private static final ClosedChannelException CLOSED_CHANNEL_EXCEPTION = new ClosedChannelException();&#x000A;    static {&#x000A;        CLOSED_CHANNEL_EXCEPTION.setStackTrace(new StackTraceElement[0]);&#x000A;    }&#x000A;    ....&#x000A;&#x000A;    private void failPendingWrites(PendingWrite... writes) {&#x000A;        for (PendingWrite write: writes) {&#x000A;            write.setFailure(CLOSED_CHANNEL_EXCEPTION);&#x000A;        }&#x000A;    }&#x000A;}</pre>
             
-            
-            <p>But where is this useful?</p>
+            <p>But where is this useful? </p>
             
             <p>For example in a network application a closed <code>Channel</code> is not a really exceptional state anyway. So this may be a good fit in this case. In fact we do something similar in <a href="http://netty.io">Netty</a> for exactly this case.</p>
             
             <p><strong>Caution: only do this if you are sure you know what you are doing!</strong></p>
             
-            <h2>Benchmarks</h2>
-            
-            <p>Now with all the claims it's time to actually proof them. For this I wrote a microbenchmark using <a href="http://openjdk.java.net/projects/code-tools/jmh/">JMH</a>.</p>
+            <h2 id="benchmarks">Benchmarks</h2>
+            <p>Now with all the claims it's time to actually proof them. For this I wrote a microbenchmark using <a href="http://openjdk.java.net/projects/code-tools/jmh/">JMH</a>. </p>
             
             <p>You can find the source code of the benchmark in the <a href="https://github.com/normanmaurer/jmh-benchmarks/tree/master/src/main/java/me/normanmaurer/benchmarks">github repository</a>.
-            As there is no JMH version in any public maven repository yet I just bundled a SNAPSHOT version of it in the repository. As this is just a SNAPSHOT it may get out of date at some point in time.... Anyway this is good enough for us to run a benchmark and should be quite simple to be updated if needed.</p>
+            As there is no JMH version in any public maven repository yet I just bundled a SNAPSHOT version of it in the repository. As this is just a SNAPSHOT it may get out of date at some point in time…. Anyway this is good enough for us to run a benchmark and should be quite simple to be updated if needed.</p>
             
             <p>This benchmark was run with:</p>
             
@@ -145,25 +141,23 @@
             <p>This basically means:</p>
             
             <ul>
-            <li>Clone the code</li>
-            <li>Build it the code</li>
-            <li>Run a warmup for 10 seconds</li>
-            <li>Run warmup 3 times</li>
-            <li>Run each benchmark 3 times</li>
-            <li>Generate output as csv</li>
+              <li>Clone the code</li>
+              <li>Build it the code</li>
+              <li>Run a warmup for 10 seconds</li>
+              <li>Run warmup 3 times</li>
+              <li>Run each benchmark 3 times</li>
+              <li>Generate output as csv</li>
             </ul>
-            
             
             <p>The benchmark result contains the ops/msec. Each op represents the call of <code>failPendingWrites(...)</code> with and array of 10000 <code>PendingWrite</code>s.</p>
             
             <p>Enough said, time to look at the outcome:</p>
             
-            <p><img src="/blog/images/benchmark_throwable.png" title="Benchmark of different usage of Throwable" alt="Throwable" /></p>
+            <p><img src="/blog/images/benchmark_throwable.png" alt="Throwable" title="Benchmark of different usage of Throwable" /></p>
             
             <p>As you can see here creating a new <code>Throwable</code> is by far the slowest way to handle it. Next one is to lazily create a <code>Throwable</code> and reuse it for the whole method invocation. The winner is to reuse a static <code>Throwable</code> with the drawback of not having any stacktrace. So I think it's fair to say using a lazy created <code>Throwable</code> is the way to go in most cases. If you really need the last 1 % performance you could also make use of the static solution but will loose the stacktrace for debugging. So you see it's always a tradeoff.</p>
             
-            <h2>Summary</h2>
-            
+            <h2 id="summary">Summary</h2>
             <p>You should be aware of how expensive <code>Throwable.fillInStackTrace()</code> is and so think hard about how and when you create new instances of <code>Throwable</code>. This is also true for subtypes as those will call the super constructor.</p>
             
             <p>To make it short, nothing is for free so think about what you are doing before you run into performance problems later.
