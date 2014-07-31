@@ -1,5 +1,5 @@
 = _Netty 4_ - Intro -> Changes -> HTTP -> Lessons learned
-@Apple iCloud 2014 ; Cupertino ; 2014/07/30
+2014/07/30
 include::attributes.adoc[]
 
 :experimental:
@@ -635,7 +635,7 @@ TIP: Validation takes time and most of the times it is not needed directly in th
 public class HttpPipeliningHandler extends SimpleChannelInboundHandler<HttpRequest> {
   @Override
   public void channelRead(ChannelHandlerContext ctx, HttpRequest req) {
-    ChannelFuture future = ctx.writeAnd(createResponse(req)); <1>
+    ChannelFuture future = ctx.write(createResponse(req)); <1>
     if (!HttpHeaders.isKeepAlive(req)) {
       future.addListener(ChannelFutureListener.CLOSE); <2>
     }
