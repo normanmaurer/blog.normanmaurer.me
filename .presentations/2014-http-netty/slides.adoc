@@ -1,0 +1,972 @@
+= _Netty 4_ - Intro -> Changes -> HTTP -> Lessons learned
+2014/07/30
+include::attributes.adoc[]
+
+:experimental:
+:toc2:
+:sectanchors:
+:idprefix:
+:idseparator: -
+:icons: font
+:source-highlighter: coderay
+
+[.topic.source]
+== Norman Maurer, Principal Software Engineer / Leading Netty efforts @ Red Hat Inc.
+
+====
+* [icon-user]'{zwsp}' __Netty__ / All things NIO
+* [icon-user]'{zwsp}' Author of __Netty in Action__
+* [icon-twitter]'{zwsp}' @normanmaurer
+* [icon-github]'{zwsp}' github.com/normanmaurer
+====
+
+[.topic.source]
+== Agenda
+
+====
+* [icon-note]'{zwsp}' Introduction
+* [icon-note]'{zwsp}' Design changes Netty 3 vs 4
+* [icon-note]'{zwsp}' Netty for HTTP Server
+* [icon-note]'{zwsp}' Lessons learned
+
+====
+
+[.topic.source]
+== Quick introduction
+image::intro.jpg[width=500]
+....
+https://www.flickr.com/photos/larahsphotography/2795859728/
+....
+
+[.topic.source]
+== Fully asynchronous
+
+NOTE: Asychronous from the ground up
+
+NOTE: Using java.nio or native method calls for non-blocking io
+
+NOTE: Futures and callbacks provided for easy composing
+
+"Don't call us, we'll call you."
+-- Hollywood principle
+
+[.topic.source]
+== Hide complexity but not flexibility
+
+NOTE: Hides all the complexity involved when you use `java.nio` or `java.nio2`
+
+NOTE: Still empowers you with a lot of flexibility
+
+NOTE: Unified API all over the place
+
+NOTE: Allows easy testing of your custom code.
+
+[.topic.source]
+== Protocol agnostic -> Not just another HTTP server
+
+NOTE: Supports `TCP`, `UDP`, `UDT`, `SCTP` out of the box
+
+NOTE: Contains codecs for different protocols on top of these
+
+
+
+[.topic.source]
+== Thread-Model - Easy but powerful
+
+NOTE: `Channel` is registered to `EventLoop` (1 x Thread) and all events are processed by the same Thread.
+
+NOTE: One `EventLoop` will usually serve multiple `Channel` s
+
+NOTE: Having inbound and outbound events handled by the same Thread simplifies concurrency handling a lot!
+
+
+[.topic.source]
+== Simple state model
+
+NOTE: Allows to react on each state change by intercept the states via `ChannelHandler`.
+
+TIP: Allows flexible handling depending on the needs.
+
+image::state.png[width=400]
+
+
+[.topic.source]
+== __ChannelPipeline__
+
+NOTE: Interceptor pattern
+
+NOTE: Allows to add building-blocks (`ChannelHandler`) on-the-fly that transform data or react on events
+
+[source,sh]
+.+Kind of a unix-pipe-like thing...+
+----
+$ echo "Netty is shit...." | sed -e 's/is /is the /' | cat <1>
+                    Netty is the shit....
+
+----
+
+<1> Think of the whole line to be the `ChannelPipeline` and `echo`, `sed` and `cat` the `ChannelHandler` s that allow to transform data.
+
+
+[.topic.source]
+== __ChannelPipeline__ - How does it work
+
+NOTE: Inbound and outbound events flow through the `ChannelHandler` s in the `ChannelPipeline` and so allow to hook in.
+
+image::channel_pipeline.png[width=500]
+
+[.topic.source]
+== __ChannelPipeline__ - Compose processing logic
+
+TIP: Compose complex processing logic via multiple `ChannelHandler`.
+
+
+[source,java]
+----
+public class MyChannelInitializer extends ChannelInitializer<Channel> {
+  @Override
+  public void initChannel(Channel ch) {
+    ChannelPipeline p = ch.pipeline();
+    p.addLast(new SslHandler(...)); <1>
+    p.addLast(new HttpServerCodec(...)); <2>
+    p.addLast(new YourRequestHandler()); <3>
+  }
+}
+----
+<1> Encrypt traffic
+<2> Support HTTP
+<3> Your handler that receive the HTTP requests.
+
+
+[.topic.source]
+== __ChannelHandler__ - React on received data
+
+[source,java]
+----
+@Sharable
+public class EchoHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, Object msg) { <1>
+    ctx.writeAndFlush(msg);
+  }
+
+  @Override
+  public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) { <2>
+    cause.printStacktrace();
+    ctx.close();
+  }
+}
+----
+<1> Intercept received message and write it back to the remote peer
+<2> React on `Throwable` and close the connection
+
+[.topic.source]
+== __Decoder / Encoder__ - Transform data via ChannelHandler
+
+[source,java]
+.+Transform received ByteBuf to String+
+----
+public class StringDecoder extends MessageToMessageDecoder<ByteBuf> {
+  @Override
+  protected void decode(ChannelHandlerContext ctx, ByteBuf msg, List<Object> out) {
+      out.add(msg.toString(charset));
+  }
+}
+----
+
+[source,java]
+.+Transform to be send String to ByteBuf+
+----
+public class StringEncoder extends MessageToMessageEncoder<String> {
+  @Override
+  protected void encode(ChannelHandlerContext ctx, String msg, List<Object> out) {
+    out.add(ByteBufUtil.encodeString(ctx.alloc(), CharBuffer.wrap(msg), charset));
+  }
+}
+----
+
+[.topic.source]
+== Adding other processing logic?
+
+TIP: Adding more processing logic is often just a matter of adding __just-another__ `ChannelHandler` to the `ChannelPipeline`.
+
+
+image:win.jpg[width=300]
+....
+http://memegenerator.net/instance/43005548
+....
+
+
+[.topic.source]
+== Design Changes
+image::change.jpg[width=750]
+....
+https://www.flickr.com/photos/nhussein/3833334809
+....
+
+[.topic.source]
+== Thread-Model...
+
+CAUTION: __Netty 3__: Inbound => IO-Thread , Outbound => calling Thread :(
+
+TIP: __Netty 4__: Inbound / Outbound => IO-Thread
+
+NOTE: Having inbound and outbound handled by the IO-Thread simplifies concurrency handling a lot!
+
+[.topic.source]
+== Events vs. direct message invocation...
+
+CAUTION: __Netty 3__: Create new `ChannelEvent` for each IO event.
+
+TIP: __Netty 4__: Use dedicated method invocation per event.
+
+image::gc_pressure.jpg[width=250, align="center"]
+....
+http://25.media.tumblr.com/tumblr_me2eq0PnBx1rtu0cpo1_1280.jpg
+....
+
+NOTE: Reduces GC-Pressure a lot!
+
+
+[.topic.source]
+== ChannelHandler - Less confusing naming
+
+Inbound:
+
+CAUTION: __Netty 3__: `ChannelUpstreamHandler`
+
+TIP: __Netty 4__: `ChannelInboundHandler`
+
+Outbound:
+
+CAUTION: __Netty 3__: `ChannelDownstreamHandler`
+
+TIP: __Netty 4__: `ChannelOutboundHandler`
+
+[.topic.source]
+== Pass custom events through `ChannelPipeline`
+
+[source,java]
+.+Your custom events+
+----
+public enum CustomEvents {
+  MyCustomEvent
+}
+
+public class CustomEventHandler extends ChannelInboundHandlerAdapter {
+  @Override
+  public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
+    if (evt == MyCustomEvent) { // do something}
+  }
+}
+
+ChannelPipeline pipeline = channel.pipeline();
+pipeline.fireUserEventTriggered(MyCustomEvent);
+----
+
+TIP: Good fit for handshake notifications and more
+
+[.topic.source]
+== Write behaviour
+
+CAUTION: __Netty 3__: `Channel.write(...)` => write to socket via syscall
+
+TIP: __Netty 4__: `Channel.write(...)` => write through the pipeline but __DOESN'T__ trigger syscall. To trigger write to socket use `Channel.flush()`
+
+NOTE: Gives more flexibility for when things are written and also allows efficient pipelining.
+
+
+[.topic.source]
+== Split ChannelFuture into ChannelFuture and ChannelPromise
+
+CAUTION: __Netty 3__: `ChannelFuture` allowed to be notified directly via `setSuccess()` etc..
+
+TIP: __Netty 4__: `ChannelFuture` only allows to receive notifications. `ChannelPromise` allows to change state.
+
+NOTE: Clearer who is responsible to notify a future and who is not.
+
+
+[.topic.source]
+== EventLoopGroup to rule them all
+
+NOTE: `EventLoopGroup` used for boss and worker
+
+NOTE: Can share `EventLoopGroup` between server and client to minimize threads and latency
+
+NOTE: Register `EventLoop` to `Channel`
+
+[source,java]
+.+Share EventLoops+
+----
+EventLoopGroup group = new NioEventLoopGroup();
+Bootstrap cb = new Bootstrap();
+cb.group(group);
+
+ServerBootstrap sb = new ServerBootstrap();
+sb.group(group);
+----
+
+[.topic.source]
+== EventLoop - All the `ScheduleExecutorService` goodies for free!
+
+image::eventexecutor.png[]
+
+[source,java]
+----
+public class WriteTimeOutHandler extends ChannelOutboundHandlerAdapter {
+  @Override
+  public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+    ctx.write(msg, promise);
+
+    if (!promise.isDone()) {
+      ctx.executor().schedule(new WriteTimeoutTask(promise), 30, TimeUnit.SECONDS); <1>
+    }
+  }
+}
+----
+<1> Schedule task for in 30 seconds
+
+
+[.topic.source]
+== Execute ChannelHandler outside of EventLoop
+
+CAUTION: __Netty 3__: Use `OrderedMemoryAwareThreadPoolExecutor`
+
+
+CAUTION: __Netty 4__: Support build into the `ChannelPipeline`
+
+[source,java]
+----
+Channel ch = ...;
+ChannelPipeline p = ch.pipeline();
+EventExecutor e1 = new DefaultEventExecutor(16);
+
+p.addLast(new MyProtocolCodec()); <1>
+p.addLast(e1, new MyDatabaseAccessingHandler()); <2>
+----
+<1> Executed in `EventLoop` (and so the `Thread` bound to it)
+<2> Executed in one of the `EventExecutors` of e1
+
+[.topic.source]
+== Buffers
+
+CAUTION: __Netty 3__: Always use heap buffers by default
+
+TIP: __Netty 4__: Use direct buffers by default and may even pool them.
+
+
+NOTE: Not depend on the GC for direct buffers.
+
+
+image::trash.jpg[width=300]
+....
+https://www.flickr.com/photos/stavos52093/13807616194/
+....
+
+[.topic.source]
+== Use Pooling of buffers to reduce allocation / deallocation time!
+
+TIP: Pooling pays off for direct and heap buffers!
+
+image::pooled_buffers.png[width=400]
+....
+https://blog.twitter.com/2013/netty-4-at-twitter-reduced-gc-overhead
+....
+
+[.topic.source]
+== Issues with using non pooled-buffers
+CAUTION: Use unpooled buffers with __caution__!
+
+=====
+* [icon-note]'{zwsp}' Allocation / Deallocation is __slow__
+* [icon-note]'{zwsp}' Free up direct buffers == __PITA__!
+=====
+TIP: __Use__ pooled buffers!
+
+[source,java]
+----
+Bootstrap bootstrap = new Bootstrap();
+bootstrap.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
+ServerBootstrap bootstrap = new ServerBootstrap();
+bootstrap.childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
+----
+
+
+[.topic.source]
+== Reference Counting - Wait What ?
+
+WARNING: Netty 4 uses reference counting for maximal performance!
+
+[source,java]
+----
+public interface ReferenceCounted {
+  int refCnt();
+  ReferenceCounted retain();
+  ReferenceCounted retain(int increment);
+  boolean release();
+  boolean release(int decrement);
+}
+----
+
+[.topic.source]
+== Reference Counting - Who is responsible to release ?
+
+TIP:  Rule of thumb is that the party who accesses a reference-counted object lastly is responsible for the destruction of the reference-counted object
+
+image::reference_counting.jpg[width=200]
+....
+https://www.flickr.com/photos/puppiesofpurgatory/3898011217/
+....
+
+NOTE: Important to understand who is responsible for release resources.
+
+[.topic.source]
+== Reference Counting - ChannelInboundHandler(Adapter) ?
+
+[source,java]
+----
+public class MyChannelInboundHandler extends ChannelInboundHandlerAdapter {
+  public void channelRead(ChannelHandlerContext ctx, Object msg) {
+    try {
+      ...
+    } finally {
+      ReferenceCountUtil.release(msg);
+    }
+  }
+}
+----
+
+TIP: You can also use `SimpleChannelInboundHandler` which calls `ReferenceCountUtil.release(msg)` for all messages it handles.
+
+[.topic.source]
+== Reference Counting - ChannelOutboundHandler(Adapter) ?
+
+NOTE: You only want to call `ReferenceCountUtil.release(msg)` here if you don't call `ctx.write(originalMsg, promise)`.
+
+TIP: Netty will automatically call `ReferenceCountUtil.release(msg)` once the transport has handled the outbound messages after they are flushed.
+
+[.topic.source]
+== Reference Counting - Find the leak ?
+
+[source]
+.+simple leak reporting+
+----
+LEAK: ByteBuf.release() was not called before it's garbage-collected....
+----
+
+[source]
+.+advanced leak reporting+
+----
+LEAK: ByteBuf.release() was not called before it's garbage-collected.
+Recent access records: 1
+#1:
+    io.netty.buffer.AdvancedLeakAwareByteBuf.toString(AdvancedLeakAwareByteBuf.java:697)
+    ...
+Created at:
+    ...
+    io.netty.handler.codec.xml.XmlFrameDecoderTest.testDecodeWithXml(XmlFrameDecoderTest.java:147)
+----
+
+[.topic.source]
+== Native stuff in Netty 4
+
+TIP: OpenSSL based SslEngine to reduce memory usage and latency.
+
+TIP: Native transport for Linux using Epoll ET for more performance and less CPU usage.
+
+TIP: Native transport also supports SO_REUSEPORT and TCP_CORK :)
+
+
+image::200px-Tux.svg.png[width=100]
+
+[.topic.source]
+== Switching to native transport is easy
+
+[source,java]
+.+Using NIO transport+
+----
+Bootstrap bootstrap = new Bootstrap().group(new NioEventLoopGroup());
+bootstrap.channel(NioSocketChannel.class);
+----
+
+[source,java]
+.+Using native transport+
+----
+Bootstrap bootstrap = new Bootstrap().group(new EpollEventLoopGroup());
+bootstrap.channel(EpollSocketChannel.class);
+----
+
+
+[.topic.source]
+== HTTP - Use Netty as HTTP server
+image::http.jpg[width=500]
+....
+https://www.flickr.com/photos/nadya/251716318
+....
+
+
+[.topic.source]
+== Related Codecs
+
+NOTE: HTTP 1.0 / 1.1 and 2.0 (in review)
+
+NOTE: HTTP Compression, CORS
+
+NOTE: SPDY 3.1
+
+NOTE: WebSockets and WebSockets Compression (in review)
+
+[.topic.source]
+== Allow sending of HTTP responses / requests in chunks
+
+NOTE: -> 1 x `HttpResponse` , 0 - n `HTTPContent`  , 1 x `LastHttpContent`
+
+NOTE: -> 1 x `HttpRequest`, 0 - n `HTTPContent`, 1 x `LastHttpContent`
+
+TIP: Allows efficent __streaming__ of HTTP responses / requests without big memory overhead.
+
+
+[.topic.source]
+== Aggregate HTTP response / request parts
+
+[source,java]
+----
+ChannelPipeline pipeline = channel.pipeline();
+pipeline.addLast(new HttpObjectAggregator(10 * 1024 * 1024)); <1>
+pipeline.addLast(new SimpleChannelInboundHandler<FullHttpRequest>() {
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, FullHttpRequest req) { <2>
+    // handle me
+  }
+});
+----
+<1> Add `HttpObjectAggregator` to `ChannelPipeline` which will take care of aggregating HTTP parts to `FullHttpResponse` or `FullHttpRequest` (incoming).
+<2> Will only receive `FullHttpRequest` and so contains all parts for the request which includes headers, content and trailing headers.
+
+[.topic.source]
+== Static header names and values via AsciiString.
+
+[source,java]
+----
+private static final AsciiString X_HEADER_NAME = new AsciiString("X-Header"); <1>
+private static final AsciiString X_VALUE = new AsciiString("Value");
+
+pipeline.addLast(new SimpleChannelInboundHandler<FullHttpRequest>() {
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, FullHttpRequest req) {
+    FullHttpResponse response = new FullHttpResponse(HTTP_1_1, OK);
+    response.headers().set(X_HEADER_NAME, X_VALUE); <2>
+    ...
+    ctx.writeAndFlush(response);
+  }
+});
+----
+<1> Create `AsciiString` for often used header names and values.
+<2> Add to `HttpHeader` of `FullHttpResponse`
+
+TIP: `AsciiString` is faster to encode and faster to find in `HttpHeaders`.
+
+[.topic.source]
+== FileRegion for zero-memory-copy transfer (sendfile)
+
+[source,java]
+----
+RandomAccessFile raf = new RandomAccessFile(file, "r");
+HttpResponse response = new FullHttpResponse(HTTP_1_1, OK);
+HttpHeaderUtil.setContentLength(response, raf.length());
+channel.write(response); <1>
+channel.write(new DefaultFileRegion(raf.getChannel(), 0, fileLength)); <2>
+channel.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);  <3>
+----
+<1> Write `HttpResponse` which contains the `HttpHeaders` with the Content-Length of the file set.
+<2> Write a `DefaultFileRegion` which allows to use zero-memory-copy (transfer directly in kernel-space)
+<3> Write a `LastHttpContent` to mark the response as complete.
+
+WARNING: You can only use `FileRegion` if data __MUST NOT__ be converted on the fly.
+
+[.topic.source]
+== HttpChunkInput when FileRegion can not be used
+
+[source,java]
+----
+File f = new File(file, "r");
+HttpResponse response = new FullHttpResponse(HTTP_1_1, OK);
+HttpHeaders.setContentLength(response, f.length());
+channel.write(response); <1>
+channel.write(new HttpChunkedInput(new ChunkedNioFile(file))); <2>
+channel.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);  <3>
+----
+<1> Write `HttpResponse` which contains the `HttpHeaders` with the Content-Length of the file set.
+<2> Write a `HttpChunkedInput` to stream from a file when FileRegion can't be used
+<3> Write a `LastHttpContent` to mark the response as complete.
+
+WARNING: `ChunkedWriteHandler` must be added to the `ChannelPipeline` for this to work!
+
+TIP: Use this when you have for example the `SslHandler` in the `ChannelPipeline`.
+
+[.topic.source]
+== Validate headers or not ?
+
+[source,java]
+.+Validate for headers for US-ASCII+
+----
+ChannelPipeline pipeline = channel.pipeline();
+pipeline.addLast(new HttpRequestDecoder(4096, 8192, 8192));
+
+HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.OK);
+----
+
+[source,java]
+.+Not validate for headers for US-ASCII+
+----
+ChannelPipeline pipeline = channel.pipeline();
+pipeline.addLast(new HttpRequestDecoder(4096, 8192, 8192, false));
+
+HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.OK, false);
+----
+
+TIP: Validation takes time and most of the times it is not needed directly in the decoder/encoder.
+
+[.topic.source]
+== Easy HTTP Pipelining to save syscalls!
+
+[source,java]
+----
+public class HttpPipeliningHandler extends SimpleChannelInboundHandler<HttpRequest> {
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, HttpRequest req) {
+    ChannelFuture future = ctx.write(createResponse(req)); <1>
+    if (!HttpHeaders.isKeepAlive(req)) {
+      future.addListener(ChannelFutureListener.CLOSE); <2>
+    }
+  }
+  @Override
+  public void channelReadComplete(ChannelHandlerContext ctx) {
+    ctx.flush(); <3>
+  }
+}
+----
+<1> __Write__ to the `Channel` (__No syscall!__) but don't flush yet
+<2> __Close__ socket when done writing
+<3> __Flush__ out to the socket.
+
+
+
+NOTE: Works without extra dependency for Java 7+. For Java 6 jzlib is needed as dependency.
+
+[.topic.source]
+== HTTP Server that needs to pipe to external services
+
+[source,java]
+----
+public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+  @Override
+  public void channelRead0(ChannelHandlerContext ctx, FullHttpRequest) { <1>
+    final Channel inboundChannel = ctx.channel();
+    Bootstrap b = new Bootstrap();
+    b.group(new NioEventLooopGroup()); <2>
+    ...
+    ChannelFuture f = b.connect(remoteHost, remotePort);
+    ...
+  }
+}
+----
+<1> Called once a new `FullHttpRequest` is received
+<2> Use a new `EventLoopGroup` instance to handle the connection to the remote peer
+
+CAUTION: Don't do this! This will tie up more resources than needed and introduce extra context-switching overhead.
+
+[.topic.source]
+== HTTP Server that needs to pipe to external services which reduce context-switching to minimum
+
+[source,java]
+----
+public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+  @Override
+  public void channelRead0(ChannelHandlerContext ctx, FullHttpRequest) { <1>
+    final Channel inboundChannel = ctx.channel();
+    Bootstrap b = new Bootstrap();
+    b.group(inboundChannel.eventLoop()); <2>
+    ...
+    ChannelFuture f = b.connect(remoteHost, remotePort);
+    ...
+  }
+}
+----
+<1> Called once a new connection is accepted
+<2> Share the same `EventLoop` between both Channels. This means all IO for both connected Channels are handled by the same Thread.
+
+TIP: Always __share__ EventLoop in those Applications
+
+[.topic.source]
+== To auto-read or not to auto-read
+
+By default Netty will keep on reading data from the `Channel` once something is ready.
+
+[source,java]
+.+Need more fine grained control ?+
+----
+channel.config().setAutoRead(false); <1>
+channel.read(); <2>
+channel.config().setAutoRead(true); <3>
+----
+<1> Disable auto read == no more data will be read automatically from this `Channel`.
+<2> Tell the `Channel` to do one read operation once new data is ready
+<3> Enable again auto read == Netty will automatically read again
+
+TIP: This can also be quite useful when writing proxy like applications!
+
+[.topic.source]
+== HTTP Server makes use of AutoRead
+
+[source,java]
+----
+public class HttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+  @Override public void channelRead0(final ChannelHandlerContext ctx, FullHttpRequest) {
+    ctx.channel().setAutoRead(false); <1>
+    Bootstrap b = createBootstrap();
+    b.connect(remoteHost, remotPort).addListener(new ChannelFutureListener() { <2>
+      public void operationComplete(ChannelFuture future) {
+        if (future.isSuccess()) ctx.channel().setAutoRead(true); <3>
+      }
+    });
+  }
+}
+----
+<1> Stop reading from the inbound `Channel`
+<2> Connect to remote host and add `ChannelFutureListener`
+<3> Start reading from inbound `Channel` again once done
+
+TIP: Disable reading helps with memory and backpressure!
+
+
+
+[.topic.source]
+== Use HttpHeaders static utility methods
+
+TIP: `HttpHeaders.Names` and `HttpHeaders.Values` contain static final fields that should be used as these are optimized for the encoder.
+
+TIP: `HttpHeaders` contains static methods to act on the headers which can often use a fast-path because of implementation details.
+
+
+[.topic.source]
+== Don't send more headers than needed
+
+NOTE: `HTTP/1.1` uses keep-alive by default, so no need to send keep-alive header.
+
+TIP: Removing a header is an improvement in terms of speed as you save the encoding and also the bandwidth to transfer it.
+
+
+[.topic.source]
+== File transfer ?
+TIP: Use zero-memory-copy for efficient transfer of raw file content
+
+[source,java]
+----
+Channel channel = ...;
+FileChannel fc = ...;
+channel.writeAndFlush(new DefaultFileRegion(fc, 0, fileLength));
+----
+
+CAUTION: This only works if you don't need to modify the data on the fly. If so use `ChunkedWriteHandler` and `NioChunkedFile`.
+
+
+[.topic.source]
+== Add support for HttpCompression
+
+
+image::compression.jpg[width=200]
+....
+https://www.flickr.com/photos/marcovdz/4520986339/
+....
+
+[source,java]
+----
+pipeline.addLast(new HttpContentCompressor()); <1>
+----
+<1> Add compression support to HTTP Server. Supports DEFLATE and GZIP :)
+
+
+[.topic.source]
+== Add support for WebSockets
+
+
+[source,java]
+----
+pipeline.addLast(new WebSocketServerProtocolHandler("/ws")); <1>
+pipeline.addLast(new SimpleChannelInboundHandler<TextWebSocketFrame>() { <2>
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+    ctx.writeAndFlush(msg);
+  }
+});
+----
+<1> Add support for WebSockets on path /ws
+<2> ChannelInboundHandler that will echo back any TextWebSocketFrame
+
+image::HTML5_logo_and_wordmark.svg[width=150]
+
+[.topic.source]
+== Add support for SPDY
+
+
+[source,java]
+----
+public class SpdyServerInitializer extends ChannelInitializer<SocketChannel> {
+    private final SslContext sslCtx =  ....
+    @Override
+    public void initChannel(SocketChannel ch) {
+        ChannelPipeline p = ch.pipeline();
+        p.addLast(sslCtx.newHandler(ch.alloc()));
+        p.addLast(new SpdyOrHttpChooser() { <1>
+          @Override
+          protected ChannelInboundHandler createHttpRequestHandlerForHttp() { ... } <2>
+          @Override
+          protected ChannelInboundHandler createHttpRequestHandlerForSpdy() { ... } <3>
+        });
+    }
+}
+
+----
+<1> Add SpdyOrHttpChooser which will detect if SPDY or HTTP should be used
+<2> ChannelInboundHandler that will handle HttpRequests which are done via HTTP
+<3> ChannelInboundHandler that will handle HttpRequests which are done via SPDY
+
+
+
+[.topic.source]
+== What we learned while working on Netty
+image::learn.jpg[width=700]
+....
+https://www.flickr.com/photos/21847073@N05/5850264509/
+....
+
+
+[.topic.source]
+== GC-Pressure
+
+NOTE: Creating a lot of objects has a very bad impact on GC times and so throughput/latency when you push hard enough.
+
+TIP: Think about Objects and how you can create less or share immutable ones.
+
+
+[.topic.source]
+== Memory usage
+
+NOTE: Save memory is important in long-living objects like our Channel implementations as there may be 100k's of them active at the same time.
+
+NOTE: Small changes here can have a big impact.
+
+TIP: By replacing `AtomicReference with `AtomicReferenceFieldUpdater` we were able to save ca. 3GB heap for a user with 500k concurrent connections.
+
+
+[.topic.source]
+== Direct ByteBuffer reclaimation by GC doesn't work fast enough
+
+NOTE: Depending on the GC, reclaiming memory of Direct `ByteBuffer` just doesn't work fast enough and may not be reclaimed before you see an OOME.
+
+TIP: User `sun.misc.Cleaner` to release memory ASAP. No risk not fun...
+
+[source,java]
+----
+static void freeDirectBuffer(ByteBuffer buffer) {
+  if (CLEANER_FIELD_OFFSET == -1 || !buffer.isDirect()) {
+    return;
+  }
+  try {
+    Cleaner cleaner = (Cleaner) getObject(buffer, CLEANER_FIELD_OFFSET);
+    if (cleaner != null) cleaner.clean();
+
+  } catch (Throwable t) { // Nothing we can do here. }
+}
+----
+
+[.topic.source]
+== Always use direct ByteBuffer when writing to SocketChannel
+
+WARNING: If you don't use a direct `ByteBuffer` the OpenJDK / Oracle Java will do an extra memory copy to transfer the data direct `ByteBuffer`.
+
+TIP: Implementing your own pool can be a big win here like what we now have with `PooledByteBufAllocator`
+
+
+[.topic.source]
+== Range checks can be expensive - ByteBufProcessor to the rescue...
+
+TIP: Range checks can be quite expensive, minimize these.
+
+[source,java]
+.+SlowSearch for ByteBuf :(+
+----
+int index = -1;
+for (int i = buf.readerIndex(); index == -1 && i <  buf.writerIndex(); i++) {
+  if (buf.getByte(i) == '\n') {
+    index = i;
+  }
+}
+----
+
+[source,java]
+.+FastSearch for ByteBuf :)+
+----
+int index = buf.forEachByte(new ByteBufProcessor() {
+  @Override
+  public boolean process(byte value) {
+    return value != '\n';
+  }
+});
+----
+
+[.topic.source]
+== Commit-Template for the win!
+
+TIP: Using a commit-template makes it easy for team members to understand your changes.
+
+image::commit_template.png[width=700]
+
+
+[.topic.source]
+== Checkstyle and review for good code-quality.
+
+TIP: Using checkstyle rules during build to fail on inconsistent code styling
+
+TIP: For more complex changes use review processes before merging in changes
+
+TIP: Work with git branches
+
+TIP: Use `git rebase` and `git cherry-pick` to keep history clean
+
+
+[.topic.source]
+== Semantic Versioning - for the win
+
+NOTE: Use Semantic Versioning to make it easy for your users to upgrade etc.
+
+
+[.topic.source]
+== Want to know more?
+
+TIP: Buy my book http://www.manning.com/maurer/[Netty in Action] and make me __RICH__.
+
+image::maurer_cover150.jpg[width=100]
+....
+http://www.manning.com/maurer
+....
+
+__$ KA-CHING $__
+[.topic.source]
+== References
+
+NOTE: Netty - http://netty.io
+
+NOTE: Slides generated with Asciidoctor and DZSlides backend
+
+NOTE: Original slide template - Dan Allen & Sarah White
+
+NOTE: All pictures licensed with `Creative Commons Attribution` or +
+`Creative Commons Attribution-Share Alike`
+
+[.topic.ending, hrole="name"]
+== Norman Maurer
+
+[.footer]
+[icon-twitter]'{zwsp}' @normanmaurer
