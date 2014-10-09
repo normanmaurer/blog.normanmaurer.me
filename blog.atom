@@ -2,13 +2,44 @@
 <feed xml:lang="en-US" xmlns="http://www.w3.org/2005/Atom">
   <id>http://normanmaurer.me/</id>
   <title>Normans rant's and more</title>
-  <updated>2014-07-29T08:28:03-07:00</updated>
+  <updated>2014-10-09T14:58:32+02:00</updated>
   <link href="http://normanmaurer.me/blog.atom" rel="self" type="application/atom+xml" />
   <link href="http://normanmaurer.me/" rel="alternate" type="text/html" />
   <entry>
+    <id>http://normanmaurer.me/blog/2014/10/09/Bye-Bye-Red-Hat/</id>
+    <title>Bye Bye Red Hat - Apple here I come</title>
+    <updated>2014-10-09T14:58:32+02:00</updated>
+    <published>2014-10-09T00:00:00+00:00</published>
+    <link href="http://normanmaurer.me/blog/2014/10/09/Bye-Bye-Red-Hat/" rel="alternate" type="text/html" />
+    <author>
+      <name>normanmaurer</name>
+    </author>
+    <summary>
+      
+      After 2 years of happy employment by Red Hat it's time for me to move on. While working for Red Hat I had an incredible time and made a lot of friends and had a lot of freedom. Red Hat will always have a place in my heart and I really loved it there.
+      That said sometimes you get a chance in your life that you should not miss or you will regret it later. This is exactly why I'm writing this blogpost :)
+      
+      I'm very excited to join the iCloud Team at Apple as Senior Software Engineer to help working on...
+    </summary>
+    <content type="html">
+      
+      &lt;p&gt;After 2 years of happy employment by &lt;a href=&quot;http://redhat.com&quot;&gt;Red Hat&lt;/a&gt; it's time for me to move on. While working for &lt;a href=&quot;http://redhat.com&quot;&gt;Red Hat&lt;/a&gt; I had an incredible time and made a lot of friends and had a lot of freedom. &lt;a href=&quot;http://redhat.com&quot;&gt;Red Hat&lt;/a&gt; will always have a place in my heart and I really loved it there.
+      That said sometimes you get a chance in your life that you should not miss or you will regret it later. This is exactly why I'm writing this blogpost :)&lt;/p&gt;
+      
+      &lt;p&gt;I'm very excited to join the iCloud Team at &lt;a href=&quot;http://apple.com&quot;&gt;Apple&lt;/a&gt; as Senior Software Engineer to help working on the core infrastructure that is being used by hundreds of millions people world-wide already.&lt;/p&gt;
+      
+      &lt;h2 id=&quot;what-does-this-mean-for-netty-&quot;&gt;What does this mean for Netty ?&lt;/h2&gt;
+      
+      &lt;p&gt;You may ask yourself what does this mean for my ongoing work on &lt;a href=&quot;http://netty.io&quot;&gt;Netty&lt;/a&gt;…
+      To put it straight: &quot;More scale, more performance…. benefit!&quot;.
+      I will continue to work on &lt;a href=&quot;http://netty.io&quot;&gt;Netty&lt;/a&gt; as one as the core developers as part of my Job. This includes writing code and take care of the community just as before.
+      All in all I believe these are great news for &lt;a href=&quot;http://netty.io&quot;&gt;Netty&lt;/a&gt; and exciting times are ahead of the project and the community.&lt;/p&gt;
+    </content>
+  </entry>
+  <entry>
     <id>http://normanmaurer.me/blog/2014/05/15/Inline-all-the-Things/</id>
     <title>Inline all the things</title>
-    <updated>2014-07-29T08:28:03-07:00</updated>
+    <updated>2014-07-31T17:43:03+02:00</updated>
     <published>2014-05-15T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2014/05/15/Inline-all-the-Things/" rel="alternate" type="text/html" />
     <author>
@@ -223,7 +254,7 @@
   <entry>
     <id>http://normanmaurer.me/blog/2014/04/17/Reactive-Streams/</id>
     <title>Reactive Streams</title>
-    <updated>2014-07-29T08:28:03-07:00</updated>
+    <updated>2014-07-31T17:43:03+02:00</updated>
     <published>2014-04-17T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2014/04/17/Reactive-Streams/" rel="alternate" type="text/html" />
     <author>
@@ -270,7 +301,7 @@
   <entry>
     <id>http://normanmaurer.me/blog/2014/01/07/JNI-Performance-Welcome-to-the-dark-side/</id>
     <title>JNI Performance - Welcome to the dark side</title>
-    <updated>2014-07-29T08:28:03-07:00</updated>
+    <updated>2014-07-31T17:43:03+02:00</updated>
     <published>2014-01-07T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2014/01/07/JNI-Performance-Welcome-to-the-dark-side/" rel="alternate" type="text/html" />
     <author>
@@ -519,7 +550,7 @@
   <entry>
     <id>http://normanmaurer.me/blog/2013/11/09/The-hidden-performance-costs-of-instantiating-Throwables/</id>
     <title>The hidden performance costs of instantiating Throwables</title>
-    <updated>2014-07-29T08:28:03-07:00</updated>
+    <updated>2014-07-31T17:43:03+02:00</updated>
     <published>2013-11-09T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2013/11/09/The-hidden-performance-costs-of-instantiating-Throwables/" rel="alternate" type="text/html" />
     <author>
@@ -676,7 +707,7 @@
   <entry>
     <id>http://normanmaurer.me/blog/2013/10/28/Lesser-known-concurrent-classes-Part-1/</id>
     <title>Lesser known concurrent classes - Atomic*FieldUpdater</title>
-    <updated>2014-07-29T08:28:03-07:00</updated>
+    <updated>2014-07-31T17:43:03+02:00</updated>
     <published>2013-10-28T00:00:00+00:00</published>
     <link href="http://normanmaurer.me/blog/2013/10/28/Lesser-known-concurrent-classes-Part-1/" rel="alternate" type="text/html" />
     <author>
